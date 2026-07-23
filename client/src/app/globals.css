@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Global resets ──────────────────────────────────────────── */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Smooth cursor for canvas */
+canvas {
+  display: block;
+  touch-action: none; /* prevent scroll while drawing on touch devices */
+}
