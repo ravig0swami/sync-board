@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getSocket } from '@/lib/socket';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { getSocket } from "@/lib/socket";
 
 /**
  * Landing page — lets users create a new room or join an existing one.
@@ -10,14 +10,14 @@ import { getSocket } from '@/lib/socket';
 export default function HomePage() {
   const router = useRouter();
 
-  const [joinCode, setJoinCode] = useState('');
+  const [joinCode, setJoinCode] = useState("");
   const [showJoinInput, setShowJoinInput] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   // ── Create Room ──────────────────────────────────────────────────────────
   const handleCreateRoom = () => {
-    setError('');
+    setError("");
     setLoading(true);
 
     const socket = getSocket();
@@ -25,57 +25,111 @@ export default function HomePage() {
     // Connect if not already connected
     if (!socket.connected) {
       socket.connect();
+
+      // Wait briefly for connection, then proceed
+      socket.once("connect", () => {
+        emitCreateRoom(socket);
+      });
+
+      // Handle connection error
+      socket.once("connect_error", (err) => {
+        setLoading(false);
+        setError(
+          `Cannot connect to server: ${err.message}. Make sure the server is running.`,
+        );
+      });
+
+      // Timeout fallback
+      setTimeout(() => {
+        if (loading) {
+          setLoading(false);
+          setError(
+            "Connection timed out. Please check if the server is running.",
+          );
+        }
+      }, 10000);
+    } else {
+      emitCreateRoom(socket);
     }
 
-    // Ask the server to create a new room and give us the code
-    socket.emit('create-room', (res) => {
-      if (res.success) {
-        // Join the newly created room immediately
-        socket.emit('join-room', { roomCode: res.roomCode }, (joinRes) => {
+    function emitCreateRoom(s) {
+      // Ask the server to create a new room and give us the code
+      s.emit("create-room", (res) => {
+        if (res.success) {
+          // Join the newly created room immediately
+          s.emit("join-room", { roomCode: res.roomCode }, (joinRes) => {
+            setLoading(false);
+            if (joinRes.success) {
+              router.push(`/board/${res.roomCode}`);
+            } else {
+              setError(joinRes.error || "Failed to join the created room.");
+            }
+          });
+        } else {
           setLoading(false);
-          if (joinRes.success) {
-            router.push(`/board/${res.roomCode}`);
-          } else {
-            setError(joinRes.error || 'Failed to join the created room.');
-          }
-        });
-      } else {
-        setLoading(false);
-        setError('Failed to create room. Please try again.');
-      }
-    });
+          setError("Failed to create room. Please try again.");
+        }
+      });
+    }
   };
 
   // ── Join Room ────────────────────────────────────────────────────────────
   const handleJoinRoom = () => {
     const code = joinCode.trim().toUpperCase();
     if (!code) {
-      setError('Please enter a room code.');
+      setError("Please enter a room code.");
       return;
     }
 
-    setError('');
+    setError("");
     setLoading(true);
 
     const socket = getSocket();
 
     if (!socket.connected) {
       socket.connect();
+
+      // Wait briefly for connection, then proceed
+      socket.once("connect", () => {
+        emitJoinRoom(socket, code);
+      });
+
+      // Handle connection error
+      socket.once("connect_error", (err) => {
+        setLoading(false);
+        setError(
+          `Cannot connect to server: ${err.message}. Make sure the server is running.`,
+        );
+      });
+
+      // Timeout fallback
+      setTimeout(() => {
+        if (loading) {
+          setLoading(false);
+          setError(
+            "Connection timed out. Please check if the server is running.",
+          );
+        }
+      }, 10000);
+    } else {
+      emitJoinRoom(socket, code);
     }
 
-    socket.emit('join-room', { roomCode: code }, (res) => {
-      setLoading(false);
-      if (res.success) {
-        router.push(`/board/${code}`);
-      } else {
-        setError(res.error || 'Could not join room.');
-      }
-    });
+    function emitJoinRoom(s, roomCode) {
+      s.emit("join-room", { roomCode }, (res) => {
+        setLoading(false);
+        if (res.success) {
+          router.push(`/board/${roomCode}`);
+        } else {
+          setError(res.error || "Could not join room.");
+        }
+      });
+    }
   };
 
   // Allow pressing Enter to submit the join form
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') handleJoinRoom();
+    if (e.key === "Enter") handleJoinRoom();
   };
 
   return (
@@ -150,7 +204,11 @@ export default function HomePage() {
               strokeWidth={2}
               stroke="currentColor"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4.5v15m7.5-7.5h-15"
+              />
             </svg>
           )}
           Create Room
@@ -159,7 +217,9 @@ export default function HomePage() {
         {/* Divider */}
         <div className="flex items-center gap-3 mb-4">
           <hr className="flex-1 border-gray-200" />
-          <span className="text-xs text-gray-400 uppercase tracking-wide">or</span>
+          <span className="text-xs text-gray-400 uppercase tracking-wide">
+            or
+          </span>
           <hr className="flex-1 border-gray-200" />
         </div>
 
@@ -182,8 +242,8 @@ export default function HomePage() {
                 id="btn-cancel-join"
                 onClick={() => {
                   setShowJoinInput(false);
-                  setJoinCode('');
-                  setError('');
+                  setJoinCode("");
+                  setError("");
                 }}
                 className="flex-1 border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-3 rounded-xl text-sm transition-colors duration-150"
               >
@@ -195,7 +255,7 @@ export default function HomePage() {
                 disabled={loading}
                 className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold py-3 rounded-xl text-sm transition-colors duration-150 shadow-sm"
               >
-                {loading ? <Spinner /> : 'Join'}
+                {loading ? <Spinner /> : "Join"}
               </button>
             </div>
           </div>
@@ -204,7 +264,7 @@ export default function HomePage() {
             id="btn-show-join"
             onClick={() => {
               setShowJoinInput(true);
-              setError('');
+              setError("");
             }}
             className="w-full flex items-center justify-center gap-2 border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-3 px-6 rounded-xl transition-colors duration-150 text-sm"
           >
@@ -229,7 +289,8 @@ export default function HomePage() {
 
       {/* Footer */}
       <p className="mt-8 text-xs text-gray-400">
-        No account needed. Rooms are temporary and disappear when everyone leaves.
+        No account needed. Rooms are temporary and disappear when everyone
+        leaves.
       </p>
     </main>
   );
@@ -244,7 +305,14 @@ function Spinner() {
       fill="none"
       viewBox="0 0 24 24"
     >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
       <path
         className="opacity-75"
         fill="currentColor"
