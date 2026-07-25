@@ -149,3 +149,6 @@ NEXT_PUBLIC_SERVER_URL=http://localhost:4000
 - **All room data is in-memory only.** Rooms are automatically deleted when the last user leaves.
 - **No database**, no authentication, no user accounts.
 - Works best in a modern browser (Chrome, Firefox, Safari, Edge).
+---
+
+Developed with ❤️ Feel free to check out the source code and contribute!
