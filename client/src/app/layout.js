@@ -1,9 +1,12 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'Real-Time Collaborative Whiteboard',
+  title: 'Sync Board | Rᴀᴠɪ Gᴏꜱᴡᴀᴍɪ',
   description:
     'Draw together in real-time. Create or join a room and collaborate instantly — no login required.',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({ children }) {

@@ -38,23 +38,8 @@ export default function Toolbar({
     <header className="flex items-center gap-3 px-4 py-2 bg-white border-b border-gray-200 shadow-sm flex-wrap">
       {/* ── App logo / name ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 mr-2">
-        <div className="flex items-center justify-center w-7 h-7 bg-indigo-600 rounded-lg">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-4 h-4 text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
-            />
-          </svg>
-        </div>
-        <span className="font-semibold text-gray-800 text-sm hidden sm:block">Whiteboard</span>
+        <img src="/favicon.svg" alt="Sync Board" className="w-7 h-7" />
+        <span className="font-semibold text-gray-800 text-sm hidden sm:block">Sync Board</span>
       </div>
 
       {/* Divider */}
@@ -119,7 +104,7 @@ export default function Toolbar({
       <div className="flex items-center gap-2">
         <label htmlFor="brush-size" className="text-xs text-gray-500 hidden sm:block whitespace-nowrap">
           Size&nbsp;
-          <span className="font-medium text-gray-700">{brushSize}px</span>
+          <span className="font-medium text-gray-700 inline-block min-w-[2rem] text-right">{brushSize}px</span>
         </label>
         <input
           id="brush-size"
@@ -156,13 +141,13 @@ export default function Toolbar({
       <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 rounded-lg border border-green-200">
         <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
         <span className="text-xs font-medium text-green-700">
-          {userCount} {userCount === 1 ? 'user' : 'users'}
+          {userCount} {userCount === 1 ? 'User' : 'Users'}
         </span>
       </div>
 
       {/* ── Room code + copy ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-1.5 border border-gray-200">
-        <span className="text-xs text-gray-500 hidden sm:block">Room</span>
+        <span className="text-xs text-gray-500 hidden sm:block">Room Code</span>
         <span
           id="room-code-display"
           className="font-mono font-bold text-sm tracking-widest text-indigo-700"
