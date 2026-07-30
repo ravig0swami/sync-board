@@ -293,7 +293,7 @@ export default function HomePage() {
         leaves.
       </p>
 
-      <footer className="mt-10 pb-6 text-sm text-gray-400">
+      <footer className="mt-2 pb-6 text-sm text-gray-400">
         Made with <span className="text-pink-500">❤️</span> by{" "}
         <a
           href="https://github.com/ravig0swami"
