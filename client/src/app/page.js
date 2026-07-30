@@ -159,7 +159,7 @@ export default function HomePage() {
         </h1>
         <p className="text-lg text-gray-500 max-w-md mx-auto">
           Draw together in real-time. Share a room code and collaborate
-          instantly&nbsp;— no sign-up required.
+          instantly&nbsp;— No sign-up required.
         </p>
       </div>
 
@@ -292,6 +292,18 @@ export default function HomePage() {
         No account needed. Rooms are temporary and disappear when everyone
         leaves.
       </p>
+
+      <footer className="mt-10 pb-6 text-sm text-gray-400">
+        Made with <span className="text-pink-500">❤️</span> by{" "}
+        <a
+          href="https://github.com/ravig0swami"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-gray-500 hover:text-indigo-600 underline underline-offset-2 transition-colors duration-150"
+        >
+          ravig0swami
+        </a>
+      </footer>
     </main>
   );
 }
