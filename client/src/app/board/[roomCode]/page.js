@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { getSocket } from "@/lib/socket";
+import { hasJoinedRoom, leaveRoom } from "@/lib/session";
 import Toolbar from "@/components/Toolbar";
 import WhiteboardCanvas from "@/components/WhiteboardCanvas";
 import ZoomControls from "@/components/ZoomControls";
@@ -48,6 +49,17 @@ export default function BoardPage() {
   // ── Socket setup ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!roomCode) return;
+
+    // Access gate: only allow entry if the user came through the proper
+    // create/join flow on the home page (sessionStorage-based). This blocks
+    // anyone who just opens the shared board URL directly (new tab,
+    // incognito window, another browser, etc.) without knowing the flow.
+    if (!hasJoinedRoom(roomCode)) {
+      setError(
+        "Please join this room using its room code from the home page.",
+      );
+      return;
+    }
 
     const socket = getSocket();
     let joinTimeout = null;
@@ -232,6 +244,7 @@ export default function BoardPage() {
   const handleLeave = () => {
     const socket = getSocket();
     socket.emit("leave-room", { roomCode });
+    leaveRoom(roomCode);
     router.push("/");
   };
 

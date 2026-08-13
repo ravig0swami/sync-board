@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSocket } from "@/lib/socket";
+import { markRoomAsJoined } from "@/lib/session";
 
 /**
  * Landing page — lets users create a new room or join an existing one.
@@ -60,6 +61,7 @@ export default function HomePage() {
           s.emit("join-room", { roomCode: res.roomCode }, (joinRes) => {
             setLoading(false);
             if (joinRes.success) {
+              markRoomAsJoined(res.roomCode);
               router.push(`/board/${res.roomCode}`);
             } else {
               setError(joinRes.error || "Failed to join the created room.");
@@ -119,6 +121,7 @@ export default function HomePage() {
       s.emit("join-room", { roomCode }, (res) => {
         setLoading(false);
         if (res.success) {
+          markRoomAsJoined(roomCode);
           router.push(`/board/${roomCode}`);
         } else {
           setError(res.error || "Could not join room.");
