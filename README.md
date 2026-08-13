@@ -1,5 +1,5 @@
 # 🎨 Real-Time Collaborative Whiteboard
-<img width="1099" height="785" alt="image" src="https://github.com/user-attachments/assets/920993cc-68dc-40d9-b1e1-efda20a37699" /></br>
+<img width="935" height="751" alt="{4FE3CF14-44F4-46C0-8045-1232996BC5D7}" src="https://github.com/user-attachments/assets/8f89c325-bf7c-4fbd-87de-748700406b98" /></br>
 
 A lightweight, real-time collaborative whiteboard where multiple users can draw together using a shared room code — **no sign-up, no database, no login required**.
 
