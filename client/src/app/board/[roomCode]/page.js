@@ -5,6 +5,8 @@ import { useRouter, useParams } from "next/navigation";
 import { getSocket } from "@/lib/socket";
 import Toolbar from "@/components/Toolbar";
 import WhiteboardCanvas from "@/components/WhiteboardCanvas";
+import ZoomControls from "@/components/ZoomControls";
+import PageNavigator from "@/components/PageNavigator";
 
 /**
  * /board/[roomCode] — the main collaborative whiteboard page.
@@ -29,6 +31,16 @@ export default function BoardPage() {
   const [userCount, setUserCount] = useState(1);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
+
+  const [zoom, setZoom] = useState(1);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Keep a ref to currentPage for socket listeners without re-triggering useEffect
+  const currentPageRef = useRef(currentPage);
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
 
   // Ref to the canvas imperative API
   const canvasRef = useRef(null);
@@ -80,6 +92,7 @@ export default function BoardPage() {
 
         setConnected(true);
         setUserCount(res.userCount || 1);
+        setTotalPages(res.totalPages || 1);
 
         // Replay any existing strokes so late joiners see what was drawn
         if (res.strokes?.length) {
@@ -96,18 +109,50 @@ export default function BoardPage() {
     // ── Incoming events ──────────────────────────────────────────────────
 
     // Another user drew something — render it on our canvas
-    const onDrawing = (stroke) => {
-      canvasRef.current?.drawStroke(stroke);
+    const onDrawing = ({ pageIndex, stroke }) => {
+      // Only draw if the stroke belongs to the page we're currently viewing
+      if (pageIndex === currentPageRef.current) {
+        canvasRef.current?.drawStroke(stroke);
+      }
     };
 
     // Someone cleared the board — clear ours too
-    const onClearBoard = () => {
-      canvasRef.current?.clearCanvas();
+    const onClearBoard = ({ pageIndex }) => {
+      if (pageIndex === currentPageRef.current) {
+        canvasRef.current?.clearCanvas();
+      }
     };
 
     // User joined or left — update the count
     const onUserCount = (count) => {
       setUserCount(count);
+    };
+    
+    // Page count increased
+    const onPageUpdate = (newTotal) => {
+      setTotalPages(newTotal);
+    };
+
+    // A page was deleted
+    const onPageDeleted = ({ deletedIndex, totalPages }) => {
+      console.log("Received page-deleted event:", { deletedIndex, totalPages });
+      setTotalPages(totalPages);
+      // If we were on the deleted page or a page after it, shift down
+      if (currentPageRef.current >= deletedIndex) {
+        const newPage = Math.max(0, currentPageRef.current - 1);
+        console.log("Shifting to new page after deletion:", newPage);
+        setCurrentPage(newPage);
+        
+        // Request the new page's strokes
+        socket.emit("change-page", { roomCode, pageIndex: newPage }, (res) => {
+          if (res.success) {
+            canvasRef.current?.clearCanvas();
+            if (res.strokes?.length) {
+              canvasRef.current?.replayStrokes(res.strokes);
+            }
+          }
+        });
+      }
     };
 
     // Handle unexpected disconnection
@@ -135,6 +180,8 @@ export default function BoardPage() {
     socket.on("drawing", onDrawing);
     socket.on("clear-board", onClearBoard);
     socket.on("user-count", onUserCount);
+    socket.on("page-update", onPageUpdate);
+    socket.on("page-deleted", onPageDeleted);
     socket.on("disconnect", onDisconnect);
     socket.on("connect", onReconnect);
     socket.on("connect_error", onConnectError);
@@ -147,6 +194,8 @@ export default function BoardPage() {
       socket.off("drawing", onDrawing);
       socket.off("clear-board", onClearBoard);
       socket.off("user-count", onUserCount);
+      socket.off("page-update", onPageUpdate);
+      socket.off("page-deleted", onPageDeleted);
       socket.off("disconnect", onDisconnect);
       socket.off("connect", onReconnect);
       socket.off("connect_error", onConnectError);
@@ -165,9 +214,9 @@ export default function BoardPage() {
   const handleDrawEnd = useCallback(
     (stroke) => {
       const socket = getSocket();
-      socket.emit("drawing", { roomCode, stroke });
+      socket.emit("drawing", { roomCode, pageIndex: currentPage, stroke });
     },
-    [roomCode],
+    [roomCode, currentPage],
   );
 
   /**
@@ -175,15 +224,54 @@ export default function BoardPage() {
    */
   const handleClearBoard = useCallback(() => {
     const socket = getSocket();
-    socket.emit("clear-board", { roomCode });
+    socket.emit("clear-board", { roomCode, pageIndex: currentPage });
     // The server will emit clear-board back to ALL users including us,
     // so we don't clear locally here — the socket event handler will do it.
-  }, [roomCode]);
+  }, [roomCode, currentPage]);
 
   const handleLeave = () => {
     const socket = getSocket();
     socket.emit("leave-room", { roomCode });
     router.push("/");
+  };
+
+  // ── Pagination Handlers ──────────────────────────────────────────────────
+
+  const changePage = (newPageIndex) => {
+    if (newPageIndex < 0) return;
+    
+    setCurrentPage(newPageIndex);
+    canvasRef.current?.clearCanvas();
+    
+    const socket = getSocket();
+    socket.emit("change-page", { roomCode, pageIndex: newPageIndex }, (res) => {
+      if (res.success) {
+        setTotalPages(res.totalPages);
+        if (res.strokes?.length) {
+          canvasRef.current?.replayStrokes(res.strokes);
+        }
+      }
+    });
+  };
+
+  const handlePrevPage = () => changePage(currentPage - 1);
+  const handleNextPage = () => changePage(currentPage + 1);
+  const handleNewPage = () => changePage(totalPages);
+
+  const handleDeletePage = () => {
+    console.log("Delete page clicked, currentPage:", currentPage);
+    if (currentPage === 0) return;
+    
+    const socket = getSocket();
+    console.log("Emitting delete-page to server for room:", roomCode, "pageIndex:", currentPage);
+    socket.emit("delete-page", { roomCode, pageIndex: currentPage }, (res) => {
+      console.log("Received delete-page response from server:", res);
+      if (res.success) {
+        // The page-deleted event handles the state update and fetch
+      } else if (res.error) {
+        alert(res.error);
+      }
+    });
   };
 
   // ── Error state ─────────────────────────────────────────────────────────
@@ -252,7 +340,20 @@ export default function BoardPage() {
         tool={tool}
         color={color}
         brushSize={brushSize}
+        zoom={zoom}
+        onZoomChange={setZoom}
         onDrawEnd={handleDrawEnd}
+      />
+
+      <ZoomControls zoom={zoom} onZoomChange={setZoom} />
+
+      <PageNavigator
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPrevPage={handlePrevPage}
+        onNextPage={handleNextPage}
+        onNewPage={handleNewPage}
+        onDeletePage={handleDeletePage}
       />
 
       {/* Leave room button — fixed bottom-right */}

@@ -199,7 +199,8 @@ io.on("connection", (socket) => {
     } while (rooms[code]);
 
     rooms[code] = {
-      strokes: [], // array of drawing stroke objects
+      pages: { 0: [] }, // mapping of pageIndex to array of strokes
+      totalPages: 1,
       users: new Set(),
     };
 
@@ -239,13 +240,64 @@ io.on("connection", (socket) => {
     // Notify others in the room about the new user count
     socket.to(roomCode).emit("user-count", userCount);
 
-    // Send the new user the full canvas history so they see what was drawn before
+    // Send the new user the full canvas history for page 0
     callback({
       success: true,
       roomCode,
-      strokes: room.strokes,
+      strokes: room.pages[0],
+      totalPages: room.totalPages,
       userCount,
     });
+  });
+
+  // ── change-page ───────────────────────────────────────────────────────────
+  // Client switches to a different page. Server sends back strokes for that page.
+  socket.on("change-page", ({ roomCode, pageIndex }, callback) => {
+    const room = rooms[roomCode];
+    if (!room) {
+      return callback({ success: false, error: "Room not found." });
+    }
+
+    if (!room.pages[pageIndex]) {
+      room.pages[pageIndex] = [];
+      if (pageIndex >= room.totalPages) {
+        room.totalPages = pageIndex + 1;
+        io.to(roomCode).emit("page-update", room.totalPages);
+      }
+    }
+
+    callback({
+      success: true,
+      strokes: room.pages[pageIndex],
+      totalPages: room.totalPages,
+    });
+  });
+
+  // ── delete-page ───────────────────────────────────────────────────────────
+  socket.on("delete-page", ({ roomCode, pageIndex }, callback) => {
+    const room = rooms[roomCode];
+    if (!room) {
+      if (callback) callback({ success: false, error: "Room not found." });
+      return;
+    }
+    
+    if (pageIndex === 0) {
+      if (callback) callback({ success: false, error: "Cannot delete the first page." });
+      return;
+    }
+
+    // Shift all pages down
+    for (let i = pageIndex; i < room.totalPages - 1; i++) {
+      room.pages[i] = room.pages[i + 1] || [];
+    }
+    // Delete the last page
+    delete room.pages[room.totalPages - 1];
+    
+    room.totalPages = Math.max(1, room.totalPages - 1);
+
+    // Notify everyone
+    io.to(roomCode).emit("page-deleted", { deletedIndex: pageIndex, totalPages: room.totalPages });
+    if (callback) callback({ success: true });
   });
 
   // ── leave-room ────────────────────────────────────────────────────────────
@@ -264,31 +316,38 @@ io.on("connection", (socket) => {
   });
 
   // ── drawing ───────────────────────────────────────────────────────────────
-  // Client sends a drawing stroke segment.
-  // Server saves it to the room history and broadcasts it to all OTHER users in the room.
-  socket.on("drawing", ({ roomCode, stroke }) => {
+  // Client sends a drawing stroke segment for a specific page.
+  socket.on("drawing", ({ roomCode, pageIndex, stroke }) => {
     const room = rooms[roomCode];
     if (!room) return;
 
+    if (!room.pages[pageIndex]) {
+      room.pages[pageIndex] = [];
+      if (pageIndex >= room.totalPages) {
+        room.totalPages = pageIndex + 1;
+        io.to(roomCode).emit("page-update", room.totalPages);
+      }
+    }
+
     // Persist the stroke so late-joining users can replay the full board
-    room.strokes.push(stroke);
+    room.pages[pageIndex].push(stroke);
 
     // Broadcast to everyone else in the room (not the sender)
-    socket.to(roomCode).emit("drawing", stroke);
+    socket.to(roomCode).emit("drawing", { pageIndex, stroke });
   });
 
   // ── clear-board ───────────────────────────────────────────────────────────
-  // Client requests the board to be cleared for everyone in the room.
-  socket.on("clear-board", ({ roomCode }) => {
+  // Client requests the board to be cleared for a specific page.
+  socket.on("clear-board", ({ roomCode, pageIndex }) => {
     const room = rooms[roomCode];
     if (!room) return;
 
-    // Wipe the stored strokes
-    room.strokes = [];
+    // Wipe the stored strokes for this page
+    room.pages[pageIndex] = [];
 
     // Tell everyone in the room (including sender) to clear their canvas
-    io.to(roomCode).emit("clear-board");
-    console.log(`Board cleared in room ${roomCode}`);
+    io.to(roomCode).emit("clear-board", { pageIndex });
+    console.log(`Board cleared in room ${roomCode}, page ${pageIndex}`);
   });
 
   // ── disconnect ────────────────────────────────────────────────────────────

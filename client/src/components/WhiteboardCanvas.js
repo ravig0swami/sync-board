@@ -23,22 +23,29 @@ import { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 
  *   replayStrokes(strokes) - replays an array of historic strokes (for late joiners)
  */
 const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
-  { tool, color, brushSize, onDrawEnd },
+  { tool, color, brushSize, zoom = 1, onZoomChange, onDrawEnd },
   ref
 ) {
+  const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
   const lastPoint = useRef(null);
   // Accumulate points for the current stroke before emitting
   const currentStroke = useRef(null);
 
+  // Panning & Zooming state
+  const isPanning = useRef(false);
+  const panStart = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+  const touchZoomStart = useRef({ distance: 0, zoom: 1 });
+
   // ── Canvas resize ───────────────────────────────────────────────────────
-  // Use ResizeObserver so the canvas pixel dimensions always match the
-  // element's actual layout size — even on first render before window events fire.
+  // Use ResizeObserver on the container so the canvas logical pixel dimensions
+  // always match the container's actual layout size — even on first render.
   // We save & restore the image bitmap so a resize doesn't wipe the board.
   useEffect(() => {
+    const container = containerRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!container || !canvas) return;
 
     let prevWidth = 0;
     let prevHeight = 0;
@@ -84,29 +91,58 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
       }
     });
 
-    observer.observe(canvas);
+    observer.observe(container);
     return () => observer.disconnect();
   }, []);
+
+  // ── Zooming (Trackpad/Wheel) ────────────────────────────────────────────
+
+  const handleWheel = useCallback((e) => {
+    if (e.ctrlKey && onZoomChange) {
+      e.preventDefault();
+      const zoomStep = e.deltaY > 0 ? -0.1 : 0.1;
+      let nextZoom = zoom + zoomStep;
+      nextZoom = Math.min(Math.max(nextZoom, 0.5), 4.0);
+      onZoomChange(nextZoom);
+    }
+  }, [zoom, onZoomChange]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    
+    // Attach passive: false so we can preventDefault on ctrl+wheel
+    const onWheel = (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        handleWheel(e);
+      }
+    };
+    
+    container.addEventListener('wheel', onWheel, { passive: false });
+    return () => container.removeEventListener('wheel', onWheel);
+  }, [handleWheel]);
 
   // ── Drawing helpers ─────────────────────────────────────────────────────
 
   /**
    * Get mouse/touch coordinates relative to the canvas element.
+   * Divide by zoom to get the logical coordinates.
    */
-  const getPos = (e) => {
+  const getPos = useCallback((e) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     if (e.touches) {
       return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top,
+        x: (e.touches[0].clientX - rect.left) / zoom,
+        y: (e.touches[0].clientY - rect.top) / zoom,
       };
     }
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      x: (e.clientX - rect.left) / zoom,
+      y: (e.clientY - rect.top) / zoom,
     };
-  };
+  }, [zoom]);
 
   /**
    * Draw a single line segment from (x0, y0) to (x1, y1) using the given style.
@@ -125,7 +161,48 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
   // ── Pointer event handlers ──────────────────────────────────────────────
 
   const handlePointerDown = useCallback((e) => {
-    e.preventDefault();
+    // Right click pan
+    if (e.button === 2) {
+      isPanning.current = true;
+      const container = containerRef.current;
+      panStart.current = {
+        x: e.clientX,
+        y: e.clientY,
+        scrollLeft: container.scrollLeft,
+        scrollTop: container.scrollTop,
+      };
+      if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing';
+      return;
+    }
+
+    // Two finger touch
+    if (e.touches && e.touches.length === 2) {
+      isPanning.current = true;
+      const container = containerRef.current;
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const centerX = (t1.clientX + t2.clientX) / 2;
+      const centerY = (t1.clientY + t2.clientY) / 2;
+
+      touchZoomStart.current = { distance: dist, zoom: zoom };
+      panStart.current = {
+        x: centerX,
+        y: centerY,
+        scrollLeft: container.scrollLeft,
+        scrollTop: container.scrollTop,
+      };
+      return;
+    }
+
+    // Prevent drawing with multi-touch or right/middle click
+    if (e.touches && e.touches.length > 1) return;
+    if (e.button !== undefined && e.button !== 0) return;
+
+    if (e.type !== 'touchstart') {
+      e.preventDefault();
+    }
+    
     const pos = getPos(e);
     isDrawing.current = true;
     lastPoint.current = pos;
@@ -143,11 +220,42 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     drawSegment(ctx, pos.x, pos.y, pos.x, pos.y, strokeColor, brushSize);
-  }, [tool, color, brushSize, drawSegment]);
+  }, [tool, color, brushSize, drawSegment, getPos]);
 
   const handlePointerMove = useCallback((e) => {
-    e.preventDefault();
+    if (isPanning.current) {
+      const container = containerRef.current;
+      if (e.touches && e.touches.length === 2) {
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        const centerX = (t1.clientX + t2.clientX) / 2;
+        const centerY = (t1.clientY + t2.clientY) / 2;
+
+        // Pan
+        const dx = centerX - panStart.current.x;
+        const dy = centerY - panStart.current.y;
+        container.scrollLeft = panStart.current.scrollLeft - dx;
+        container.scrollTop = panStart.current.scrollTop - dy;
+
+        // Zoom
+        if (onZoomChange && touchZoomStart.current.distance > 0) {
+          const ratio = dist / touchZoomStart.current.distance;
+          let nextZoom = touchZoomStart.current.zoom * ratio;
+          nextZoom = Math.min(Math.max(nextZoom, 0.5), 4.0);
+          onZoomChange(nextZoom);
+        }
+      } else if (e.type === 'mousemove') {
+        const dx = e.clientX - panStart.current.x;
+        const dy = e.clientY - panStart.current.y;
+        container.scrollLeft = panStart.current.scrollLeft - dx;
+        container.scrollTop = panStart.current.scrollTop - dy;
+      }
+      return;
+    }
+
     if (!isDrawing.current) return;
+    if (e.type !== 'touchmove') e.preventDefault();
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -159,11 +267,19 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
 
     lastPoint.current = pos;
     currentStroke.current.points.push(pos);
-  }, [tool, color, brushSize, drawSegment]);
+  }, [tool, color, brushSize, drawSegment, getPos, zoom, onZoomChange]);
 
   const handlePointerUp = useCallback((e) => {
+    if (isPanning.current) {
+      if (!e.touches || e.touches.length < 2) {
+         isPanning.current = false;
+         if (canvasRef.current) canvasRef.current.style.cursor = tool === 'eraser' ? 'cell' : 'crosshair';
+      }
+      return;
+    }
+
     if (!isDrawing.current) return;
-    e.preventDefault();
+    if (e.type !== 'touchend') e.preventDefault();
     isDrawing.current = false;
 
     // Emit the completed stroke to the parent (which will send it via socket)
@@ -228,23 +344,31 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <canvas
-      ref={canvasRef}
-      id="whiteboard-canvas"
-      className="flex-1 w-full"
-      style={{
-        cursor: tool === 'eraser' ? 'cell' : 'crosshair',
-        background: '#ffffff',
-        touchAction: 'none',
-      }}
-      onMouseDown={handlePointerDown}
-      onMouseMove={handlePointerMove}
-      onMouseUp={handlePointerUp}
-      onMouseLeave={handlePointerUp}
-      onTouchStart={handlePointerDown}
-      onTouchMove={handlePointerMove}
-      onTouchEnd={handlePointerUp}
-    />
+    <div 
+      ref={containerRef} 
+      className={`flex-1 w-full relative ${zoom === 1 ? 'overflow-hidden' : 'overflow-auto bg-gray-100'}`}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <canvas
+        ref={canvasRef}
+        id="whiteboard-canvas"
+        className="block min-w-full min-h-full"
+        style={{
+          cursor: tool === 'eraser' ? 'cell' : 'crosshair',
+          background: '#ffffff',
+          touchAction: 'none',
+          transform: `scale(${zoom})`,
+          transformOrigin: '0 0',
+        }}
+        onMouseDown={handlePointerDown}
+        onMouseMove={handlePointerMove}
+        onMouseUp={handlePointerUp}
+        onMouseLeave={handlePointerUp}
+        onTouchStart={handlePointerDown}
+        onTouchMove={handlePointerMove}
+        onTouchEnd={handlePointerUp}
+      />
+    </div>
   );
 });
 
