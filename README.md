@@ -25,7 +25,7 @@ A lightweight, real-time collaborative whiteboard where multiple users can draw 
 │   │   │   ├── page.js            Landing page (Create / Join)
 │   │   │   ├── globals.css        Tailwind base styles
 │   │   │   └── board/
-│   │   │       └── [roomCode]/
+│   │   │       └── [token]/
 │   │   │           └── page.js    Whiteboard room page
 │   │   ├── components/
 │   │   │   ├── Toolbar.js         Top toolbar (tools, color, size, room info)

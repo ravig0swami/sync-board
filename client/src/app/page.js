@@ -61,8 +61,9 @@ export default function HomePage() {
           s.emit("join-room", { roomCode: res.roomCode }, (joinRes) => {
             setLoading(false);
             if (joinRes.success) {
-              markRoomAsJoined(res.roomCode);
-              router.push(`/board/${res.roomCode}`);
+              // The URL gets the opaque token — never the room code.
+              markRoomAsJoined(joinRes.token, res.roomCode);
+              router.push(`/board/${joinRes.token}`);
             } else {
               setError(joinRes.error || "Failed to join the created room.");
             }
@@ -121,8 +122,9 @@ export default function HomePage() {
       s.emit("join-room", { roomCode }, (res) => {
         setLoading(false);
         if (res.success) {
-          markRoomAsJoined(roomCode);
-          router.push(`/board/${roomCode}`);
+          // The URL gets the opaque token — never the room code.
+          markRoomAsJoined(res.token, roomCode);
+          router.push(`/board/${res.token}`);
         } else {
           setError(res.error || "Could not join room.");
         }

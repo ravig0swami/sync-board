@@ -1,6 +1,7 @@
 const express = require("express");
 const http = require("http");
 const path = require("path");
+const crypto = require("crypto");
 const { Server } = require("socket.io");
 const cors = require("cors");
 
@@ -62,6 +63,13 @@ if (isProduction) {
 // rooms = { roomCode: { strokes: [], users: Set<socketId> } }
 const rooms = {};
 
+// Maps an opaque board URL token -> room code.
+// The board URL uses these tokens so the human-readable room code is never
+// exposed in the address bar. Only sockets that joined with the correct code
+// ever receive a token (returned by join-room), so the URL alone cannot grant
+// access on a fresh session.
+const boardTokens = {}; // token -> roomCode
+
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 /**
@@ -77,12 +85,27 @@ function generateRoomCode() {
 }
 
 /**
+ * Generate a long, random, opaque token that is used in the board URL.
+ * This is deliberately unrelated to the room code so the code is never
+ * visible in the address bar.
+ */
+function generateBoardToken() {
+  return crypto.randomBytes(24).toString("base64url");
+}
+
+/**
  * Clean up a room if it is empty (no connected users).
  */
 function cleanUpRoom(roomCode) {
   const room = rooms[roomCode];
   if (room && room.users.size === 0) {
     delete rooms[roomCode];
+
+    // Drop any board URL tokens that pointed to this (now deleted) room.
+    for (const token of Object.keys(boardTokens)) {
+      if (boardTokens[token] === roomCode) delete boardTokens[token];
+    }
+
     console.log(`Room ${roomCode} deleted (empty).`);
   }
 }
@@ -240,10 +263,18 @@ io.on("connection", (socket) => {
     // Notify others in the room about the new user count
     socket.to(roomCode).emit("user-count", userCount);
 
+    // Issue a fresh opaque board token for this join. This token is what
+    // goes into the board URL — never the human-readable room code — so the
+    // code is never exposed in the address bar. The token only becomes
+    // useful to the client that stored it in its session during the join.
+    const token = generateBoardToken();
+    boardTokens[token] = roomCode;
+
     // Send the new user the full canvas history for page 0
     callback({
       success: true,
       roomCode,
+      token,
       strokes: room.pages[0],
       totalPages: room.totalPages,
       userCount,

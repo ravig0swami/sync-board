@@ -3,14 +3,16 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { getSocket } from "@/lib/socket";
-import { hasJoinedRoom, leaveRoom } from "@/lib/session";
+import { hasJoinedRoom, getRoomCodeForToken, leaveRoom } from "@/lib/session";
 import Toolbar from "@/components/Toolbar";
 import WhiteboardCanvas from "@/components/WhiteboardCanvas";
 import ZoomControls from "@/components/ZoomControls";
 import PageNavigator from "@/components/PageNavigator";
 
 /**
- * /board/[roomCode] — the main collaborative whiteboard page.
+ * /board/[token] — the main collaborative whiteboard page.
+ * The URL carries an opaque token (never the human-readable room code), so
+ * only people who joined with the room code can access the board.
  *
  * Responsibilities:
  *  1. Verify the room is valid (redirect home if not).
@@ -23,7 +25,11 @@ import PageNavigator from "@/components/PageNavigator";
 export default function BoardPage() {
   const router = useRouter();
   const params = useParams();
-  const roomCode = params?.roomCode?.toUpperCase();
+  // The URL carries an opaque board token — never the human-readable room code.
+  // We recover the code from this tab's session, which is only populated when
+  // the user explicitly joined with the room code on the home page.
+  const token = params?.token;
+  const roomCode = getRoomCodeForToken(token);
 
   // ── Drawing state ──────────────────────────────────────────────────────
   const [tool, setTool] = useState("pencil");
@@ -48,13 +54,15 @@ export default function BoardPage() {
 
   // ── Socket setup ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!roomCode) return;
+    if (!token) return;
 
     // Access gate: only allow entry if the user came through the proper
-    // create/join flow on the home page (sessionStorage-based). This blocks
-    // anyone who just opens the shared board URL directly (new tab,
-    // incognito window, another browser, etc.) without knowing the flow.
-    if (!hasJoinedRoom(roomCode)) {
+    // create/join flow on the home page (sessionStorage-based). The URL only
+    // contains an opaque token, and a token -> room code pairing only exists
+    // when the user explicitly joined with the room code. This blocks anyone
+    // who just opens the shared board URL directly (new tab, incognito window,
+    // another browser, etc.) without knowing the flow.
+    if (!hasJoinedRoom(token) || !roomCode) {
       setError(
         "Please join this room using its room code from the home page.",
       );
@@ -244,7 +252,7 @@ export default function BoardPage() {
   const handleLeave = () => {
     const socket = getSocket();
     socket.emit("leave-room", { roomCode });
-    leaveRoom(roomCode);
+    leaveRoom(token);
     router.push("/");
   };
 
