@@ -223,6 +223,7 @@ io.on("connection", (socket) => {
 
     rooms[code] = {
       pages: { 0: [] }, // mapping of pageIndex to array of strokes
+      redoPages: {},    // per-page stack of undone strokes (for redo)
       totalPages: 1,
       users: new Set(),
     };
@@ -337,8 +338,14 @@ io.on("connection", (socket) => {
     for (let i = pageIndex; i < room.totalPages - 1; i++) {
       room.pages[i] = room.pages[i + 1] || [];
     }
+    // Shift redo stacks down as well so they stay aligned with pages
+    room.redoPages = room.redoPages || {};
+    for (let i = pageIndex; i < room.totalPages - 1; i++) {
+      room.redoPages[i] = room.redoPages[i + 1] || [];
+    }
     // Delete the last page
     delete room.pages[room.totalPages - 1];
+    delete room.redoPages[room.totalPages - 1];
     
     room.totalPages = Math.max(1, room.totalPages - 1);
 
@@ -379,6 +386,10 @@ io.on("connection", (socket) => {
     // Persist the stroke so late-joining users can replay the full board
     room.pages[pageIndex].push(stroke);
 
+    // A new stroke invalidates any redo history for this page
+    room.redoPages = room.redoPages || {};
+    room.redoPages[pageIndex] = [];
+
     // Broadcast to everyone else in the room (not the sender)
     socket.to(roomCode).emit("drawing", { pageIndex, stroke });
   });
@@ -392,9 +403,49 @@ io.on("connection", (socket) => {
     // Wipe the stored strokes for this page
     room.pages[pageIndex] = [];
 
+    // Clearing also resets the redo history for this page
+    room.redoPages = room.redoPages || {};
+    room.redoPages[pageIndex] = [];
+
     // Tell everyone in the room (including sender) to clear their canvas
     io.to(roomCode).emit("clear-board", { pageIndex });
     console.log(`Board cleared in room ${roomCode}, page ${pageIndex}`);
+  });
+
+  // ── undo ──────────────────────────────────────────────────────────────
+  // Remove the last stroke from a page and tell everyone to redraw.
+  socket.on("undo", ({ roomCode, pageIndex }, callback) => {
+    const room = rooms[roomCode];
+    if (!room) return callback?.({ success: false, error: "Room not found." });
+    room.redoPages = room.redoPages || {};
+
+    const strokes = room.pages[pageIndex] || [];
+    if (strokes.length === 0) return callback?.({ success: false });
+
+    const removed = strokes.pop();
+    (room.redoPages[pageIndex] ||= []).push(removed);
+
+    io.to(roomCode).emit("strokes-changed", { pageIndex, strokes });
+    callback?.({ success: true, strokes });
+  });
+
+  // ── redo ──────────────────────────────────────────────────────────────
+  // Restore the most recently undone stroke and tell everyone to redraw.
+  socket.on("redo", ({ roomCode, pageIndex }, callback) => {
+    const room = rooms[roomCode];
+    if (!room) return callback?.({ success: false, error: "Room not found." });
+    room.redoPages = room.redoPages || {};
+
+    const redoStack = room.redoPages[pageIndex] || [];
+    if (redoStack.length === 0) return callback?.({ success: false });
+
+    const restored = redoStack.pop();
+    room.pages[pageIndex] = room.pages[pageIndex] || [];
+    room.pages[pageIndex].push(restored);
+
+    const strokes = room.pages[pageIndex];
+    io.to(roomCode).emit("strokes-changed", { pageIndex, strokes });
+    callback?.({ success: true, strokes });
   });
 
   // ── disconnect ────────────────────────────────────────────────────────────

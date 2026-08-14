@@ -31,7 +31,7 @@ export default function PageNavigator({
         title="Previous page"
         onClick={onPrevPage}
         disabled={currentPage <= 0}
-        className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -41,7 +41,7 @@ export default function PageNavigator({
       {/* Page indicator */}
       <span
         id="page-indicator"
-        className="hidden sm:block min-w-[3.5rem] sm:min-w-[5rem] text-center text-xs font-semibold text-gray-700 tabular-nums select-none"
+        className="min-w-[3.5rem] sm:min-w-[5rem] text-center text-xs font-semibold text-gray-700 tabular-nums select-none"
       >
         Page {currentPage + 1} / {totalPages}
       </span>
@@ -52,7 +52,7 @@ export default function PageNavigator({
         title="Next page"
         onClick={onNextPage}
         disabled={currentPage >= totalPages - 1}
-        className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -60,14 +60,14 @@ export default function PageNavigator({
       </button>
 
       {/* Divider */}
-      <div className="hidden sm:block w-px h-5 bg-gray-200 mx-0.5" />
+      <div className="w-px h-5 bg-gray-200 mx-0.5" />
 
       {/* New page button */}
       <button
         id="btn-new-page"
         title="Add new page"
         onClick={onNewPage}
-        className="flex items-center gap-1 px-1.5 sm:px-2.5 h-8 rounded-lg text-xs font-medium text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 border border-gray-300 hover:border-indigo-200 transition-colors"
+        className="flex items-center gap-1 px-1.5 sm:px-2.5 h-8 rounded-lg text-xs font-medium text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 border-0 sm:border sm:border-gray-300 hover:border-indigo-200 transition-colors"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -81,7 +81,7 @@ export default function PageNavigator({
         title="Delete current page"
         onClick={onDeletePage}
         disabled={currentPage <= 0}
-        className={`hidden sm:flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
+        className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
           currentPage <= 0 
             ? "text-gray-300 cursor-not-allowed opacity-50" 
             : "text-red-500 hover:bg-red-50 hover:text-red-700"

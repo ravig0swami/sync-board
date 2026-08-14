@@ -157,6 +157,16 @@ export default function BoardPage() {
       }
     };
 
+    // Someone undid/redid on this page — redraw the full page
+    const onStrokesChanged = ({ pageIndex, strokes }) => {
+      if (pageIndex === currentPageRef.current) {
+        canvasRef.current?.clearCanvas();
+        if (strokes?.length) {
+          canvasRef.current?.replayStrokes(strokes);
+        }
+      }
+    };
+
     // User joined or left — update the count
     const onUserCount = (count) => {
       setUserCount(count);
@@ -213,6 +223,7 @@ export default function BoardPage() {
 
     socket.on("drawing", onDrawing);
     socket.on("clear-board", onClearBoard);
+    socket.on("strokes-changed", onStrokesChanged);
     socket.on("user-count", onUserCount);
     socket.on("page-update", onPageUpdate);
     socket.on("page-deleted", onPageDeleted);
@@ -227,6 +238,7 @@ export default function BoardPage() {
 
       socket.off("drawing", onDrawing);
       socket.off("clear-board", onClearBoard);
+      socket.off("strokes-changed", onStrokesChanged);
       socket.off("user-count", onUserCount);
       socket.off("page-update", onPageUpdate);
       socket.off("page-deleted", onPageDeleted);
@@ -261,6 +273,22 @@ export default function BoardPage() {
     socket.emit("clear-board", { roomCode, pageIndex: currentPage });
     // The server will emit clear-board back to ALL users including us,
     // so we don't clear locally here — the socket event handler will do it.
+  }, [roomCode, currentPage]);
+
+  /**
+   * Undo the last stroke on the current page (synced via the server).
+   */
+  const handleUndo = useCallback(() => {
+    const socket = getSocket();
+    socket.emit("undo", { roomCode, pageIndex: currentPage });
+  }, [roomCode, currentPage]);
+
+  /**
+   * Redo the most recently undone stroke on the current page (synced).
+   */
+  const handleRedo = useCallback(() => {
+    const socket = getSocket();
+    socket.emit("redo", { roomCode, pageIndex: currentPage });
   }, [roomCode, currentPage]);
 
   /**
@@ -395,6 +423,8 @@ export default function BoardPage() {
         onToolChange={handleToolChange}
         onColorChange={setColor}
         onBrushSizeChange={setBrushSize}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
         onClearBoard={handleClearBoard}
         onDownloadPdf={handleDownloadPdf}
         downloading={downloading}

@@ -52,6 +52,8 @@ export default function Toolbar({
   onToolChange,
   onColorChange,
   onBrushSizeChange,
+  onUndo,
+  onRedo,
   onClearBoard,
   onDownloadPdf,
   downloading,
@@ -213,6 +215,33 @@ export default function Toolbar({
           className="w-20 sm:w-24 h-1.5 accent-indigo-600 cursor-pointer"
           title={`Brush size: ${brushSize}px`}
         />
+      </div>
+
+      {/* Divider */}
+      <div className="w-px h-6 bg-gray-200" />
+
+      {/* ── Undo / Redo ───────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1">
+        <button
+          id="btn-undo"
+          onClick={onUndo}
+          title="Undo last stroke"
+          className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+          </svg>
+        </button>
+        <button
+          id="btn-redo"
+          onClick={onRedo}
+          title="Redo last undo"
+          className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
+          </svg>
+        </button>
       </div>
 
       {/* Divider */}
