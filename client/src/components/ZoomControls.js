@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect } from "react";
+
 /**
  * ZoomControls
  *
@@ -29,6 +31,25 @@ export default function ZoomControls({ zoom, onZoomChange }) {
 
   const handleReset = () => {
     onZoomChange(1);
+  };
+
+  // ── Fullscreen toggle ────────────────────────────────────────────────────
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Keep the icon in sync with the browser's actual fullscreen state (covers
+  // exiting via the Esc key as well).
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const handleToggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
   };
 
   return (
@@ -85,6 +106,29 @@ export default function ZoomControls({ zoom, onZoomChange }) {
           <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
         </svg>
         Reset
+      </button>
+
+      {/* Divider */}
+      <div className="w-px h-5 bg-gray-200 mx-0.5" />
+
+      {/* Fullscreen toggle (icon only) */}
+      <button
+        id="btn-fullscreen"
+        title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+        onClick={handleToggleFullscreen}
+        className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+      >
+        {isFullscreen ? (
+          /* Collapse / exit-fullscreen icon */
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9L4.5 4.5M15 15v4.5m0-4.5h4.5m-4.5 0l4.5 4.5" />
+          </svg>
+        ) : (
+          /* Expand / enter-fullscreen icon */
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M20.25 20.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
+          </svg>
+        )}
       </button>
     </div>
   );
