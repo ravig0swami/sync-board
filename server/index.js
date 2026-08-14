@@ -281,6 +281,22 @@ io.on("connection", (socket) => {
     });
   });
 
+  // ── get-all-pages ─────────────────────────────────────────────────────────
+  // Client asks for the strokes of every page (used for PDF export/download).
+  socket.on("get-all-pages", ({ roomCode }, callback) => {
+    const room = rooms[roomCode];
+    if (!room) {
+      return callback?.({ success: false, error: "Room not found." });
+    }
+
+    const pages = [];
+    for (let i = 0; i < room.totalPages; i++) {
+      pages.push(room.pages[i] || []);
+    }
+
+    callback?.({ success: true, pages, totalPages: room.totalPages });
+  });
+
   // ── change-page ───────────────────────────────────────────────────────────
   // Client switches to a different page. Server sends back strokes for that page.
   socket.on("change-page", ({ roomCode, pageIndex }, callback) => {

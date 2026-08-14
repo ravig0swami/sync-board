@@ -38,6 +38,9 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
   const panStart = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
   const touchZoomStart = useRef({ distance: 0, zoom: 1 });
 
+  // Ref to the eraser size ring indicator overlay
+  const eraserRingRef = useRef(null);
+
   // ── Canvas resize ───────────────────────────────────────────────────────
   // Use ResizeObserver on the container so the canvas logical pixel dimensions
   // always match the container's actual layout size — even on first render.
@@ -158,6 +161,41 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     ctx.stroke();
   }, []);
 
+  /**
+   * Hide the eraser size ring indicator.
+   */
+  const hideEraserRing = useCallback(() => {
+    const ring = eraserRingRef.current;
+    if (ring) ring.style.opacity = '0';
+  }, []);
+
+  /**
+   * Move/resize the eraser size ring indicator to follow the pointer.
+   * The ring's diameter matches the eraser (brush) size so the user can see
+   * exactly how much area will be erased.
+   */
+  const updateEraserRing = useCallback((e) => {
+    const ring = eraserRingRef.current;
+    const container = containerRef.current;
+    if (!ring || !container || tool !== 'eraser') return;
+
+    const rect = container.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    // Position in the container's content coords (accounting for scroll).
+    const x = clientX - rect.left + container.scrollLeft;
+    const y = clientY - rect.top + container.scrollTop;
+    // Visual diameter scales with zoom (brush size is in canvas/logical px).
+    const size = brushSize * zoom;
+
+    ring.style.opacity = '1';
+    ring.style.left = `${x}px`;
+    ring.style.top = `${y}px`;
+    ring.style.width = `${size}px`;
+    ring.style.height = `${size}px`;
+  }, [tool, brushSize, zoom]);
+
   // ── Pointer event handlers ──────────────────────────────────────────────
 
   const handlePointerDown = useCallback((e) => {
@@ -203,6 +241,7 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
       e.preventDefault();
     }
     
+    updateEraserRing(e);
     const pos = getPos(e);
     isDrawing.current = true;
     lastPoint.current = pos;
@@ -220,7 +259,7 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     drawSegment(ctx, pos.x, pos.y, pos.x, pos.y, strokeColor, brushSize);
-  }, [tool, color, brushSize, drawSegment, getPos]);
+  }, [tool, color, brushSize, drawSegment, getPos, updateEraserRing]);
 
   const handlePointerMove = useCallback((e) => {
     if (isPanning.current) {
@@ -254,6 +293,7 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
       return;
     }
 
+    updateEraserRing(e);
     if (!isDrawing.current) return;
     if (e.type !== 'touchmove') e.preventDefault();
 
@@ -267,7 +307,7 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
 
     lastPoint.current = pos;
     currentStroke.current.points.push(pos);
-  }, [tool, color, brushSize, drawSegment, getPos, zoom, onZoomChange]);
+  }, [tool, color, brushSize, drawSegment, getPos, zoom, onZoomChange, updateEraserRing]);
 
   const handlePointerUp = useCallback((e) => {
     if (isPanning.current) {
@@ -278,7 +318,10 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
       return;
     }
 
-    if (!isDrawing.current) return;
+    if (!isDrawing.current) {
+      if (e.type === 'mouseleave' || e.type === 'touchend') hideEraserRing();
+      return;
+    }
     if (e.type !== 'touchend') e.preventDefault();
     isDrawing.current = false;
 
@@ -288,7 +331,9 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     }
     currentStroke.current = null;
     lastPoint.current = null;
-  }, [onDrawEnd]);
+
+    if (e.type === 'mouseleave' || e.type === 'touchend') hideEraserRing();
+  }, [onDrawEnd, hideEraserRing]);
 
   // ── Imperative API exposed to parent ────────────────────────────────────
   useImperativeHandle(ref, () => ({
@@ -367,6 +412,26 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
         onTouchStart={handlePointerDown}
         onTouchMove={handlePointerMove}
         onTouchEnd={handlePointerUp}
+      />
+
+      {/* Eraser size ring indicator — a circular border showing the erase area */}
+      <div
+        ref={eraserRingRef}
+        className="pointer-events-none"
+        style={{
+          display: tool === 'eraser' ? 'block' : 'none',
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: 0,
+          height: 0,
+          borderRadius: '9999px',
+          border: '2px solid #6b7280',
+          boxShadow: '0 0 0 1px rgba(255,255,255,0.8)',
+          opacity: 0,
+          zIndex: 10,
+          transform: 'translate(-50%, -50%)',
+        }}
       />
     </div>
   );

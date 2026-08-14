@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { getSocket } from "@/lib/socket";
-import { hasJoinedRoom, getRoomCodeForToken, leaveRoom } from "@/lib/session";
+import { getRoomCodeForToken, leaveRoom } from "@/lib/session";
 import Toolbar from "@/components/Toolbar";
 import WhiteboardCanvas from "@/components/WhiteboardCanvas";
 import ZoomControls from "@/components/ZoomControls";
 import PageNavigator from "@/components/PageNavigator";
+import { exportPagesToPdf } from "@/lib/exportPdf";
 
 /**
  * /board/[token] — the main collaborative whiteboard page.
@@ -29,7 +30,17 @@ export default function BoardPage() {
   // We recover the code from this tab's session, which is only populated when
   // the user explicitly joined with the room code on the home page.
   const token = params?.token;
-  const roomCode = getRoomCodeForToken(token);
+
+  // ── Room code (hydrated after mount) ──────────────────────────────────────
+  // The room code lives in sessionStorage, which is browser-only. Reading it
+  // during render would make the server HTML (no sessionStorage → empty) differ
+  // from the client's first render (actual code), causing a hydration mismatch.
+  // So we start with `null`, read the code in an effect after mount, and let
+  // both server + first client render agree on the initial (empty) value.
+  const [roomCode, setRoomCode] = useState(null);
+  useEffect(() => {
+    if (token) setRoomCode(getRoomCodeForToken(token));
+  }, [token]);
 
   // ── Drawing state ──────────────────────────────────────────────────────
   const [tool, setTool] = useState("pencil");
@@ -62,7 +73,10 @@ export default function BoardPage() {
     // when the user explicitly joined with the room code. This blocks anyone
     // who just opens the shared board URL directly (new tab, incognito window,
     // another browser, etc.) without knowing the flow.
-    if (!hasJoinedRoom(token) || !roomCode) {
+    // `roomCode` starts as `null` and is hydrated right after mount — wait for
+    // it before deciding whether the user is allowed in (avoids a false gate).
+    if (roomCode === null) return;
+    if (!roomCode) {
       setError(
         "Please join this room using its room code from the home page.",
       );
@@ -249,6 +263,26 @@ export default function BoardPage() {
     // so we don't clear locally here — the socket event handler will do it.
   }, [roomCode, currentPage]);
 
+  /**
+   * Download every page of the board as a landscape PDF.
+   * Fetches the strokes for all pages from the server, then renders them into
+   * a landscape A4 PDF and triggers a download.
+   */
+  const [downloading, setDownloading] = useState(false);
+  const handleDownloadPdf = useCallback(() => {
+    if (downloading) return;
+    const socket = getSocket();
+    setDownloading(true);
+    socket.emit("get-all-pages", { roomCode }, (res) => {
+      setDownloading(false);
+      if (!res?.success) {
+        alert(res?.error || "Could not download the PDF. Please try again.");
+        return;
+      }
+      exportPagesToPdf(res.pages || [], `sync-board-${roomCode}.pdf`);
+    });
+  }, [roomCode, downloading]);
+
   const handleLeave = () => {
     const socket = getSocket();
     socket.emit("leave-room", { roomCode });
@@ -353,6 +387,8 @@ export default function BoardPage() {
         onColorChange={setColor}
         onBrushSizeChange={setBrushSize}
         onClearBoard={handleClearBoard}
+        onDownloadPdf={handleDownloadPdf}
+        downloading={downloading}
       />
 
       {/* Canvas fills remaining height */}
@@ -382,7 +418,7 @@ export default function BoardPage() {
         id="btn-leave-room"
         onClick={handleLeave}
         title="Leave room"
-        className="fixed bottom-5 right-5 flex items-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 shadow-md text-gray-600 hover:text-red-600 font-medium text-sm px-4 py-2.5 rounded-xl transition-colors"
+        className="fixed bottom-5 right-5 flex items-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 shadow-md text-gray-600 hover:text-red-600 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
