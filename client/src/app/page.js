@@ -140,23 +140,27 @@ export default function HomePage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <div className="text-center mb-12">
+      <div className="text-center mb-8 sm:mb-12">
         {/* Icon */}
-        <div className="flex items-center justify-center w-20 h-20 mx-auto mb-6">
-          <img src="/favicon.svg" alt="Sync Board" className="w-20 h-20" />
+        <div className="flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-6">
+          <img
+            src="/favicon.svg"
+            alt="Sync Board"
+            className="w-16 h-16 sm:w-20 sm:h-20"
+          />
         </div>
 
-        <h1 className="text-4xl font-bold text-gray-900 tracking-tight mb-3">
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight mb-3">
           Sync Board
         </h1>
-        <p className="text-lg text-gray-500 max-w-md mx-auto">
+        <p className="text-base sm:text-lg text-gray-500 max-w-md mx-auto">
           Draw together in real-time. Share a room code and collaborate
           instantly&nbsp;— No sign-up required.
         </p>
       </div>
 
       {/* ── Card ──────────────────────────────────────────────────────────── */}
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
         {/* Error message */}
         {error && (
           <div className="mb-5 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">

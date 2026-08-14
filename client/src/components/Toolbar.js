@@ -55,6 +55,7 @@ export default function Toolbar({
   onClearBoard,
   onDownloadPdf,
   downloading,
+  onLeaveRoom,
 }) {
   // ── Color picker popup state ─────────────────────────────────────────────
   // We use a custom popup (preset swatches + hex field) instead of the native
@@ -74,7 +75,7 @@ export default function Toolbar({
   };
 
   return (
-    <header className="flex items-center gap-3 px-4 py-2 bg-white border-b border-gray-200 shadow-sm flex-wrap">
+    <header className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-1.5 sm:py-2 bg-white border-b border-gray-200 shadow-sm flex-wrap">
       {/* ── App logo / name ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 mr-2">
         <img src="/favicon.svg" alt="Sync Board" className="w-7 h-7" />
@@ -209,7 +210,7 @@ export default function Toolbar({
           max="50"
           value={brushSize}
           onChange={(e) => onBrushSizeChange(Number(e.target.value))}
-          className="w-24 h-1.5 accent-indigo-600 cursor-pointer"
+          className="w-20 sm:w-24 h-1.5 accent-indigo-600 cursor-pointer"
           title={`Brush size: ${brushSize}px`}
         />
       </div>
@@ -241,8 +242,9 @@ export default function Toolbar({
         <span className="hidden sm:inline">Clear</span>
       </button>
 
-      {/* Spacer pushes room info to the right */}
-      <div className="flex-1" />
+      {/* Spacer pushes room info to the right (desktop only — on mobile the
+          toolbar wraps naturally) */}
+      <div className="flex-1 hidden sm:block" />
 
       {/* ── Users online badge ───────────────────────────────────────────── */}
       <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-lg border border-gray-200">
@@ -311,6 +313,29 @@ export default function Toolbar({
         <span className="hidden sm:inline">
           {downloading ? "Preparing…" : "PDF"}
         </span>
+      </button>
+
+      {/* Leave room (mobile only — desktop keeps the floating bottom button) */}
+      <button
+        id="btn-leave-room-mobile"
+        onClick={onLeaveRoom}
+        title="Leave room"
+        className="sm:hidden flex items-center justify-center w-8 h-8 rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600 border border-gray-300 transition-colors"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"
+          />
+        </svg>
       </button>
     </header>
   );

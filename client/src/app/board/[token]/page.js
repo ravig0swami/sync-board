@@ -45,7 +45,7 @@ export default function BoardPage() {
   // ── Drawing state ──────────────────────────────────────────────────────
   const [tool, setTool] = useState("pencil");
   const [color, setColor] = useState("#1a1a2e");
-  const [brushSize, setBrushSize] = useState(4);
+  const [brushSize, setBrushSize] = useState(2);
   const [userCount, setUserCount] = useState(1);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
@@ -283,6 +283,15 @@ export default function BoardPage() {
     });
   }, [roomCode, downloading]);
 
+  /**
+   * Switch drawing tool, also setting the matching default brush size:
+   * pencil = 2px, eraser = 30px.
+   */
+  const handleToolChange = useCallback((newTool) => {
+    setTool(newTool);
+    setBrushSize(newTool === "eraser" ? 30 : 2);
+  }, []);
+
   const handleLeave = () => {
     const socket = getSocket();
     socket.emit("leave-room", { roomCode });
@@ -367,7 +376,7 @@ export default function BoardPage() {
 
   // ── Main board UI ────────────────────────────────────────────────────────
   return (
-    <main className="flex flex-col h-screen overflow-hidden bg-white">
+    <main className="flex flex-col h-dvh overflow-hidden bg-white">
       {/* Connection status banner */}
       {!connected && !error && (
         <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-xs text-yellow-700 flex items-center gap-2">
@@ -383,12 +392,13 @@ export default function BoardPage() {
         brushSize={brushSize}
         roomCode={roomCode}
         userCount={userCount}
-        onToolChange={setTool}
+        onToolChange={handleToolChange}
         onColorChange={setColor}
         onBrushSizeChange={setBrushSize}
         onClearBoard={handleClearBoard}
         onDownloadPdf={handleDownloadPdf}
         downloading={downloading}
+        onLeaveRoom={handleLeave}
       />
 
       {/* Canvas fills remaining height */}
@@ -418,7 +428,7 @@ export default function BoardPage() {
         id="btn-leave-room"
         onClick={handleLeave}
         title="Leave room"
-        className="fixed bottom-5 right-5 flex items-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 shadow-md text-gray-600 hover:text-red-600 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors"
+        className="hidden sm:flex fixed bottom-4 sm:bottom-5 right-3 sm:right-5 items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 shadow-md text-gray-600 hover:text-red-600 font-medium text-sm px-2.5 sm:px-4 py-2.5 rounded-lg transition-colors"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -434,7 +444,7 @@ export default function BoardPage() {
             d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"
           />
         </svg>
-        Leave Room
+        <span className="hidden sm:inline">Leave Room</span>
       </button>
     </main>
   );

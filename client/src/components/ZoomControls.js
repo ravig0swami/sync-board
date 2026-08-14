@@ -55,7 +55,7 @@ export default function ZoomControls({ zoom, onZoomChange }) {
   return (
     <div
       id="zoom-controls"
-      className="fixed bottom-5 left-5 flex items-center gap-1 bg-white/90 backdrop-blur-sm border border-gray-200 shadow-lg rounded-xl px-2 py-1.5 z-50"
+      className="hidden sm:flex fixed bottom-4 sm:bottom-5 left-3 sm:left-5 flex-col sm:flex-row items-center justify-center gap-1 bg-white/90 backdrop-blur-sm border border-gray-200 shadow-lg rounded-xl px-1.5 sm:px-2 py-1.5 z-50"
     >
       {/* Zoom Out */}
       <button
