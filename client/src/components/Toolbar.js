@@ -141,7 +141,7 @@ export default function Toolbar({
         </ToolButton>
 
         {/* Color swatch */}
-        <div className="flex items-center justify-center">
+        <div className="relative flex items-center justify-center">
           <button
             type="button"
             onClick={() => setShowColorPicker((v) => !v)}
@@ -150,13 +150,43 @@ export default function Toolbar({
             className="w-8 h-8 rounded-lg border-2 border-gray-300 hover:border-indigo-400 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             style={{ backgroundColor: tool === "eraser" ? "#ffffff" : color }}
           />
+
+          {showColorPicker && (
+            <>
+              {/* Click-outside backdrop */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowColorPicker(false)}
+              />
+
+              {/* Custom picker popup (no native dialog → no black flash) */}
+              <div className="absolute top-full mt-2 right-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2 w-44">
+                <div className="grid grid-cols-6 gap-1.5">
+                  {PRESET_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      title={c}
+                      onClick={() => {
+                        onColorChange(c);
+                        setShowColorPicker(false);
+                      }}
+                      className={`w-5 h-5 rounded-full transition transform hover:scale-110 ${
+                        color.toLowerCase() === c.toLowerCase()
+                          ? "border border-indigo-500 ring-2 ring-indigo-200"
+                          : "border border-gray-300"
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Brush size slider (compact vertical stack) */}
-        <div className="flex flex-col items-center justify-center gap-0.5 min-w-0">
-          <span className="text-[10px] text-gray-500 font-medium leading-none">
-            {brushSize}px
-          </span>
+        {/* Brush size slider (mobile — slider only) */}
+        <div className="flex items-center justify-center min-w-0">
           <input
             id="brush-size-mobile"
             type="range"
