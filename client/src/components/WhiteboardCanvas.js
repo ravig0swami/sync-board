@@ -313,7 +313,7 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     if (isPanning.current) {
       if (!e.touches || e.touches.length < 2) {
          isPanning.current = false;
-         if (canvasRef.current) canvasRef.current.style.cursor = tool === 'eraser' ? 'cell' : 'crosshair';
+         if (canvasRef.current) canvasRef.current.style.cursor = tool === 'eraser' ? 'none' : 'crosshair';
       }
       return;
     }
@@ -399,7 +399,7 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
         id="whiteboard-canvas"
         className="block min-w-full min-h-full"
         style={{
-          cursor: tool === 'eraser' ? 'cell' : 'crosshair',
+          cursor: tool === 'eraser' ? 'none' : 'crosshair',
           background: '#ffffff',
           touchAction: 'none',
           transform: `scale(${zoom})`,

@@ -153,7 +153,7 @@ export default function HomePage() {
         <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight mb-3">
           Sync Board
         </h1>
-        <p className="text-base sm:text-lg text-gray-500 max-w-md mx-auto">
+        <p className="text-base sm:text-lg text-gray-500 max-w-md mx-auto text-justify sm:text-center">
           Draw together in real-time. Share a room code and collaborate
           instantly&nbsp;— No sign-up required.
         </p>
@@ -284,7 +284,7 @@ export default function HomePage() {
       </div>
 
       {/* Footer */}
-      <p className="mt-8 text-xs text-gray-400">
+      <p className="mt-8 text-xs text-gray-400 text-justify sm:text-left">
         No account needed. Rooms are temporary and disappear when everyone
         leaves.
       </p>
