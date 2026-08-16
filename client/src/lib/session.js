@@ -56,17 +56,6 @@ function getRoomCodeForToken(token) {
 }
 
 /**
- * Check whether the user has explicitly joined the room behind this token in
- * the current tab session.
- *
- * @param {string} token
- * @returns {boolean}
- */
-function hasJoinedRoom(token) {
-  return Boolean(getTokenMap()[token]);
-}
-
-/**
  * Remove a room from the joined map.
  * Called when the user explicitly leaves a room.
  *
@@ -80,8 +69,6 @@ function leaveRoom(token) {
 
 export {
   markRoomAsJoined,
-  getTokenMap,
   getRoomCodeForToken,
-  hasJoinedRoom,
   leaveRoom,
 };

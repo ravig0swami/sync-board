@@ -56,15 +56,3 @@ export function getSocket() {
   }
   return socket;
 }
-
-/**
- * Disconnect and clean up the socket instance.
- * Useful when the user explicitly leaves a room or navigates away.
- */
-export function disconnectSocket() {
-  if (socket) {
-    socket.removeAllListeners();
-    socket.disconnect();
-    socket = null;
-  }
-}
