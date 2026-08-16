@@ -3,14 +3,7 @@
 import { useState, useEffect } from "react";
 
 /**
- * ZoomControls
- *
- * Floating bottom-left panel with zoom in/out buttons,
- * a percentage label, and a reset button.
- *
- * Props:
- *   zoom       - current zoom level (0.5 – 4.0)
- *   onZoomChange - (newZoom) => void
+ * Floating bottom-left panel with zoom in/out, reset, and fullscreen controls.
  */
 export default function ZoomControls({ zoom, onZoomChange }) {
   const MIN_ZOOM = 0.5;
@@ -33,11 +26,9 @@ export default function ZoomControls({ zoom, onZoomChange }) {
     onZoomChange(1);
   };
 
-  // ── Fullscreen toggle ────────────────────────────────────────────────────
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
   // Keep the icon in sync with the browser's actual fullscreen state (covers
   // exiting via the Esc key as well).
+  const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
     const onChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onChange);
@@ -57,7 +48,6 @@ export default function ZoomControls({ zoom, onZoomChange }) {
       id="zoom-controls"
       className="hidden sm:flex fixed bottom-4 sm:bottom-5 left-3 sm:left-5 flex-col sm:flex-row items-center justify-center gap-1 bg-white/90 backdrop-blur-sm border border-gray-200 shadow-lg rounded-xl px-1.5 sm:px-2 py-1.5 z-50"
     >
-      {/* Zoom Out */}
       <button
         id="btn-zoom-out"
         title="Zoom out"
@@ -70,7 +60,6 @@ export default function ZoomControls({ zoom, onZoomChange }) {
         </svg>
       </button>
 
-      {/* Percentage display */}
       <span
         id="zoom-level"
         className="min-w-[3.5rem] text-center text-xs font-semibold text-gray-700 tabular-nums select-none"
@@ -78,7 +67,6 @@ export default function ZoomControls({ zoom, onZoomChange }) {
         {percentage}%
       </span>
 
-      {/* Zoom In */}
       <button
         id="btn-zoom-in"
         title="Zoom in"
@@ -91,10 +79,8 @@ export default function ZoomControls({ zoom, onZoomChange }) {
         </svg>
       </button>
 
-      {/* Divider */}
       <div className="w-px h-5 bg-gray-200 mx-0.5" />
 
-      {/* Reset button */}
       <button
         id="btn-zoom-reset"
         title="Reset zoom to 100%"
@@ -108,10 +94,8 @@ export default function ZoomControls({ zoom, onZoomChange }) {
         Reset
       </button>
 
-      {/* Divider */}
       <div className="w-px h-5 bg-gray-200 mx-0.5" />
 
-      {/* Fullscreen toggle (icon only) */}
       <button
         id="btn-fullscreen"
         title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
@@ -119,12 +103,10 @@ export default function ZoomControls({ zoom, onZoomChange }) {
         className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition-colors"
       >
         {isFullscreen ? (
-          /* Collapse / exit-fullscreen icon */
           <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9L4.5 4.5M15 15v4.5m0-4.5h4.5m-4.5 0l4.5 4.5" />
           </svg>
         ) : (
-          /* Expand / enter-fullscreen icon */
           <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M20.25 20.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
           </svg>

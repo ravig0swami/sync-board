@@ -3,23 +3,10 @@
 import { useState } from "react";
 
 /**
- * Whiteboard Toolbar
- *
- * Renders the top bar with:
- *  - Tool buttons (Pencil / Eraser)
- *  - Color picker
- *  - Brush size slider
- *  - Download all pages as a PDF button
- *  - Clear board button
- *  - Room code display + copy button
- *  - Connected users count
- *
- * Layout:
- *  - Mobile (< sm): a 4-column grid that fills the full toolbar width
- *  - Desktop (>= sm): the original single-row flex layout
+ * Top toolbar with tools, color picker, brush size, room info and actions.
+ * Responsive: 4-column grid on mobile, single-row flex on desktop.
  */
 
-// Curated palette shown in the custom color picker (includes the default).
 const PRESET_COLORS = [
   "#000000",
   "#ffffff",
@@ -63,10 +50,7 @@ export default function Toolbar({
   downloading,
   onLeaveRoom,
 }) {
-  // ── Color picker popup state ─────────────────────────────────────────────
-  // We use a custom popup (preset swatches + hex field) instead of the native
-  // <input type="color"> dialog, which flashes a black box before it opens on
-  // Chrome/Edge.
+  // Custom color picker popup (avoids native dialog black flash on Chrome/Edge)
   const [showColorPicker, setShowColorPicker] = useState(false);
   const handleCopyCode = () => {
     navigator.clipboard.writeText(roomCode).catch(() => {
@@ -80,16 +64,12 @@ export default function Toolbar({
     });
   };
 
-  // Slider max depends on the active tool: eraser goes up to 80px, pencil to 50px.
   const sliderMax = tool === "eraser" ? 80 : 50;
 
   return (
     <>
-      {/* ═══════════════════════════════════════════════════════════════════
-          MOBILE TOOLBAR — 4-column grid that fills the whole width
-          ═══════════════════════════════════════════════════════════════════ */}
+      {/* Mobile toolbar — 4-column grid */}
       <header className="sm:hidden grid grid-cols-4 gap-1.5 px-2 py-2 bg-white border-b border-gray-200 shadow-sm">
-        {/* ── Row 1: Pencil | Eraser | Color | Size ─────────────────────── */}
         <ToolButton
           id="tool-pencil"
           active={tool === "pencil"}
@@ -140,7 +120,6 @@ export default function Toolbar({
           <span className="text-xs ml-1">Eraser</span>
         </ToolButton>
 
-        {/* Color swatch */}
         <div className="relative flex items-center justify-center">
           <button
             type="button"
@@ -153,13 +132,11 @@ export default function Toolbar({
 
           {showColorPicker && (
             <>
-              {/* Click-outside backdrop */}
               <div
                 className="fixed inset-0 z-40"
                 onClick={() => setShowColorPicker(false)}
               />
 
-              {/* Custom picker popup (no native dialog → no black flash) */}
               <div className="absolute top-full mt-2 right-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2 w-44">
                 <div className="grid grid-cols-6 gap-1.5">
                   {PRESET_COLORS.map((c) => (
@@ -185,7 +162,6 @@ export default function Toolbar({
           )}
         </div>
 
-        {/* Brush size slider (mobile — slider only) */}
         <div className="flex items-center justify-center min-w-0">
           <input
             id="brush-size-mobile"
@@ -199,7 +175,6 @@ export default function Toolbar({
           />
         </div>
 
-        {/* ── Row 2: Undo + Redo | Clear | PDF ───────────────────────────── */}
         <div className="col-span-2 flex items-center gap-1">
           <button
             id="btn-undo"
@@ -270,7 +245,6 @@ export default function Toolbar({
           <span>{downloading ? "…" : "PDF"}</span>
         </button>
 
-        {/* ── Row 3: Users | Room code + copy | Leave (full width) ───────── */}
         <div className="col-span-4 flex items-center gap-1.5">
           <div className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-100 rounded-lg border border-gray-200">
             <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
@@ -333,11 +307,8 @@ export default function Toolbar({
         </div>
       </header>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          DESKTOP TOOLBAR — original single-row flex layout (>= sm)
-          ═══════════════════════════════════════════════════════════════════ */}
+      {/* Desktop toolbar — single-row flex */}
       <header className="hidden sm:flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-1.5 sm:py-2 bg-white border-b border-gray-200 shadow-sm flex-wrap">
-        {/* ── App logo / name ─────────────────────────────────────────────── */}
         <div className="flex items-center gap-2 mr-2">
           <img src="/favicon.svg" alt="Sync Board" className="w-7 h-7" />
           <span className="font-semibold text-gray-800 text-sm hidden sm:block">
@@ -345,10 +316,8 @@ export default function Toolbar({
           </span>
         </div>
 
-        {/* Divider */}
         <div className="w-px h-6 bg-gray-200 hidden sm:block" />
 
-        {/* ── Tool buttons ────────────────────────────────────────────────── */}
         <div className="flex items-center gap-1">
           <ToolButton
             id="tool-pencil"
@@ -356,7 +325,6 @@ export default function Toolbar({
             title="Pencil"
             onClick={() => onToolChange("pencil")}
           >
-            {/* Pencil icon */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="w-5 h-5"
@@ -380,7 +348,6 @@ export default function Toolbar({
             title="Eraser"
             onClick={() => onToolChange("eraser")}
           >
-            {/* Eraser icon */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="w-5 h-5"
@@ -401,14 +368,11 @@ export default function Toolbar({
           </ToolButton>
         </div>
 
-        {/* Divider */}
         <div className="w-px h-6 bg-gray-200" />
 
-        {/* ── Color picker ─────────────────────────────────────────────────── */}
         <div className="flex items-center gap-2">
           <label className="text-xs text-gray-500 hidden sm:block">Color</label>
           <div className="relative">
-            {/* Swatch button — toggles the custom color popup */}
             <button
               type="button"
               onClick={() => setShowColorPicker((v) => !v)}
@@ -420,13 +384,11 @@ export default function Toolbar({
 
             {showColorPicker && (
               <>
-                {/* Click-outside backdrop */}
                 <div
                   className="fixed inset-0 z-40"
                   onClick={() => setShowColorPicker(false)}
                 />
 
-                {/* Custom picker popup (no native dialog → no black flash) */}
                 <div className="absolute top-full mt-2 left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2 w-44">
                   <div className="grid grid-cols-6 gap-1.5">
                     {PRESET_COLORS.map((c) => (
@@ -453,7 +415,6 @@ export default function Toolbar({
           </div>
         </div>
 
-        {/* ── Brush size slider ────────────────────────────────────────────── */}
         <div className="flex items-center gap-2">
           <label
             htmlFor="brush-size"
@@ -476,10 +437,8 @@ export default function Toolbar({
           />
         </div>
 
-        {/* Divider */}
         <div className="w-px h-6 bg-gray-200" />
 
-        {/* ── Undo / Redo ───────────────────────────────────────────────────── */}
         <div className="flex items-center gap-1">
           <button
             id="btn-undo"
@@ -503,10 +462,8 @@ export default function Toolbar({
           </button>
         </div>
 
-        {/* Divider */}
         <div className="w-px h-6 bg-gray-200" />
 
-        {/* ── Clear board ──────────────────────────────────────────────────── */}
         <button
           id="btn-clear-board"
           onClick={onClearBoard}
@@ -530,11 +487,8 @@ export default function Toolbar({
           <span className="hidden sm:inline">Clear</span>
         </button>
 
-        {/* Spacer pushes room info to the right (desktop only — on mobile the
-            toolbar wraps naturally) */}
         <div className="flex-1 hidden sm:block" />
 
-        {/* ── Users online badge ───────────────────────────────────────────── */}
         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-lg border border-gray-200">
           <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
           <span className="text-xs font-medium text-gray-700">
@@ -542,7 +496,6 @@ export default function Toolbar({
           </span>
         </div>
 
-        {/* ── Room code + copy ─────────────────────────────────────────────── */}
         <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-1.5 border border-gray-200">
           <span className="text-xs text-gray-500 hidden sm:block">Room Code</span>
           <span
@@ -573,10 +526,9 @@ export default function Toolbar({
             </svg>
           </button>
         </div>
-        {/* Divider */}
+
         <div className="w-px h-6 bg-gray-200" />
 
-        {/* ── Download PDF (top-right corner) ──────────────────────────────── */}
         <button
           id="btn-download-pdf"
           onClick={onDownloadPdf}
@@ -603,7 +555,6 @@ export default function Toolbar({
           </span>
         </button>
 
-        {/* Leave room (mobile only — desktop keeps the floating bottom button) */}
         <button
           id="btn-leave-room-mobile"
           onClick={onLeaveRoom}

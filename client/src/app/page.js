@@ -16,23 +16,19 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ── Create Room ──────────────────────────────────────────────────────────
   const handleCreateRoom = () => {
     setError("");
     setLoading(true);
 
     const socket = getSocket();
 
-    // Connect if not already connected
     if (!socket.connected) {
       socket.connect();
 
-      // Wait briefly for connection, then proceed
       socket.once("connect", () => {
         emitCreateRoom(socket);
       });
 
-      // Handle connection error
       socket.once("connect_error", (err) => {
         setLoading(false);
         setError(
@@ -40,7 +36,6 @@ export default function HomePage() {
         );
       });
 
-      // Timeout fallback
       setTimeout(() => {
         if (loading) {
           setLoading(false);
@@ -54,10 +49,8 @@ export default function HomePage() {
     }
 
     function emitCreateRoom(s) {
-      // Ask the server to create a new room and give us the code
       s.emit("create-room", (res) => {
         if (res.success) {
-          // Join the newly created room immediately
           s.emit("join-room", { roomCode: res.roomCode }, (joinRes) => {
             setLoading(false);
             if (joinRes.success) {
@@ -76,7 +69,6 @@ export default function HomePage() {
     }
   };
 
-  // ── Join Room ────────────────────────────────────────────────────────────
   const handleJoinRoom = () => {
     const code = joinCode.trim().toUpperCase();
     if (!code) {
@@ -92,12 +84,10 @@ export default function HomePage() {
     if (!socket.connected) {
       socket.connect();
 
-      // Wait briefly for connection, then proceed
       socket.once("connect", () => {
         emitJoinRoom(socket, code);
       });
 
-      // Handle connection error
       socket.once("connect_error", (err) => {
         setLoading(false);
         setError(
@@ -105,7 +95,6 @@ export default function HomePage() {
         );
       });
 
-      // Timeout fallback
       setTimeout(() => {
         if (loading) {
           setLoading(false);
@@ -132,16 +121,13 @@ export default function HomePage() {
     }
   };
 
-  // Allow pressing Enter to submit the join form
   const handleKeyDown = (e) => {
     if (e.key === "Enter") handleJoinRoom();
   };
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <div className="text-center mb-8 sm:mb-12">
-        {/* Icon */}
         <div className="flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-6">
           <img
             src="/favicon.svg"
@@ -159,9 +145,7 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* ── Card ──────────────────────────────────────────────────────────── */}
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
-        {/* Error message */}
         {error && (
           <div className="mb-5 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">
             <svg
@@ -182,7 +166,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Create Room button */}
         <button
           id="btn-create-room"
           onClick={handleCreateRoom}
@@ -210,7 +193,6 @@ export default function HomePage() {
           Create Room
         </button>
 
-        {/* Divider */}
         <div className="flex items-center gap-3 mb-4">
           <hr className="flex-1 border-gray-200" />
           <span className="text-xs text-gray-400 uppercase tracking-wide">
@@ -219,7 +201,6 @@ export default function HomePage() {
           <hr className="flex-1 border-gray-200" />
         </div>
 
-        {/* Join Room section */}
         {showJoinInput ? (
           <div className="space-y-3">
             <input
@@ -283,7 +264,6 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Footer */}
       <p className="mt-8 text-xs text-gray-400 text-center">
         No account needed. Rooms are temporary and disappear when everyone
         leaves.

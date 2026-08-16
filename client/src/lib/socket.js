@@ -3,16 +3,10 @@ import { io } from "socket.io-client";
 /**
  * Singleton Socket.IO client instance.
  *
- * We create a single socket that persists across page navigations within
- * the same browser tab, avoiding duplicate connections when components
- * re-mount. The socket connects lazily (autoConnect: false so we control
- * exactly when it connects).
- *
- * Enhanced with:
- *  - Connection timeout
- *  - Reconnection attempts
- *  - Error event logging
- *  - Transport fallback (WebSocket -> polling)
+ * A single socket persists across page navigations within the same tab,
+ * avoiding duplicate connections when components re-mount. The socket
+ * connects lazily (autoConnect: false) and features connection timeout,
+ * reconnection attempts, error logging, and transport fallback.
  */
 
 let socket;
@@ -32,7 +26,6 @@ export function getSocket() {
       transports: ["websocket", "polling"],
     });
 
-    // Log connection events for debugging
     socket.on("connect", () => {
       console.log(`[Socket] Connected to ${serverUrl} (id: ${socket.id})`);
     });

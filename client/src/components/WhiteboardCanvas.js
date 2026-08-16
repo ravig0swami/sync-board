@@ -11,12 +11,6 @@ import { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 
  *  - Emitting stroke data via onDrawEnd callback
  *  - Receiving and replaying remote strokes via the `ref` imperative handle
  *
- * Props:
- *   tool        - 'pencil' | 'eraser'
- *   color       - hex color string
- *   brushSize   - number (px)
- *   onDrawEnd   - (stroke) => void   called with a complete stroke object when the user lifts the mouse
- *
  * Exposed via ref (useImperativeHandle):
  *   drawStroke(stroke)  - replays a received remote stroke onto the canvas
  *   clearCanvas()       - wipes the entire canvas
@@ -30,7 +24,6 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
   const lastPoint = useRef(null);
-  // Accumulate points for the current stroke before emitting
   const currentStroke = useRef(null);
 
   // Panning & Zooming state
@@ -41,10 +34,8 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
   // Ref to the eraser size ring indicator overlay
   const eraserRingRef = useRef(null);
 
-  // ── Canvas resize ───────────────────────────────────────────────────────
-  // Use ResizeObserver on the container so the canvas logical pixel dimensions
-  // always match the container's actual layout size — even on first render.
-  // We save & restore the image bitmap so a resize doesn't wipe the board.
+  // Use ResizeObserver so the canvas logical pixel dimensions always match
+  // the container's actual layout size. Save & restore the bitmap on resize.
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
@@ -54,7 +45,6 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     let prevHeight = 0;
 
     const resizeCanvas = (width, height) => {
-      // Avoid no-op resize loops
       if (width === prevWidth && height === prevHeight) return;
 
       // Save current drawing
@@ -69,7 +59,6 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
       prevWidth = width;
       prevHeight = height;
 
-      // Set canvas internal resolution to match layout size
       canvas.width = width;
       canvas.height = height;
 
@@ -84,7 +73,6 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
       }
     };
 
-    // ResizeObserver fires immediately with the initial size
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
@@ -97,8 +85,6 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     observer.observe(container);
     return () => observer.disconnect();
   }, []);
-
-  // ── Zooming (Trackpad/Wheel) ────────────────────────────────────────────
 
   const handleWheel = useCallback((e) => {
     if (e.ctrlKey && onZoomChange) {
@@ -113,25 +99,20 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    
-    // Attach passive: false so we can preventDefault on ctrl+wheel
+
     const onWheel = (e) => {
       if (e.ctrlKey) {
         e.preventDefault();
         handleWheel(e);
       }
     };
-    
+
     container.addEventListener('wheel', onWheel, { passive: false });
     return () => container.removeEventListener('wheel', onWheel);
   }, [handleWheel]);
 
-  // ── Drawing helpers ─────────────────────────────────────────────────────
-
-  /**
-   * Get mouse/touch coordinates relative to the canvas element.
-   * Divide by zoom to get the logical coordinates.
-   */
+  // Get mouse/touch coordinates relative to the canvas element.
+  // Divide by zoom to get the logical coordinates.
   const getPos = useCallback((e) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
@@ -147,9 +128,6 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     };
   }, [zoom]);
 
-  /**
-   * Draw a single line segment from (x0, y0) to (x1, y1) using the given style.
-   */
   const drawSegment = useCallback((ctx, x0, y0, x1, y1, strokeColor, size) => {
     ctx.beginPath();
     ctx.moveTo(x0, y0);
@@ -161,19 +139,14 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     ctx.stroke();
   }, []);
 
-  /**
-   * Hide the eraser size ring indicator.
-   */
   const hideEraserRing = useCallback(() => {
     const ring = eraserRingRef.current;
     if (ring) ring.style.opacity = '0';
   }, []);
 
-  /**
-   * Move/resize the eraser size ring indicator to follow the pointer.
-   * The ring's diameter matches the eraser (brush) size so the user can see
-   * exactly how much area will be erased.
-   */
+  // Move/resize the eraser size ring indicator to follow the pointer.
+  // The ring's diameter matches the eraser (brush) size so the user can see
+  // exactly how much area will be erased.
   const updateEraserRing = useCallback((e) => {
     const ring = eraserRingRef.current;
     const container = containerRef.current;
@@ -183,10 +156,8 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-    // Position in the container's content coords (accounting for scroll).
     const x = clientX - rect.left + container.scrollLeft;
     const y = clientY - rect.top + container.scrollTop;
-    // Visual diameter scales with zoom (brush size is in canvas/logical px).
     const size = brushSize * zoom;
 
     ring.style.opacity = '1';
@@ -195,8 +166,6 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     ring.style.width = `${size}px`;
     ring.style.height = `${size}px`;
   }, [tool, brushSize, zoom]);
-
-  // ── Pointer event handlers ──────────────────────────────────────────────
 
   const handlePointerDown = useCallback((e) => {
     // Right click pan
@@ -240,7 +209,7 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     if (e.type !== 'touchstart') {
       e.preventDefault();
     }
-    
+
     updateEraserRing(e);
     const pos = getPos(e);
     isDrawing.current = true;
@@ -248,7 +217,6 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
 
     const strokeColor = tool === 'eraser' ? '#ffffff' : color;
 
-    // Start a new stroke object that we'll fill with points
     currentStroke.current = {
       points: [pos],
       color: strokeColor,
@@ -335,7 +303,6 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     if (e.type === 'mouseleave' || e.type === 'touchend') hideEraserRing();
   }, [onDrawEnd, hideEraserRing]);
 
-  // ── Imperative API exposed to parent ────────────────────────────────────
   useImperativeHandle(ref, () => ({
     /**
      * Replay a single remote stroke onto the canvas.
@@ -386,8 +353,6 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
     },
   }), [drawSegment]);
 
-  // ── Render ──────────────────────────────────────────────────────────────
-
   return (
     <div 
       ref={containerRef} 
@@ -414,7 +379,6 @@ const WhiteboardCanvas = forwardRef(function WhiteboardCanvas(
         onTouchEnd={handlePointerUp}
       />
 
-      {/* Eraser size ring indicator — a circular border showing the erase area */}
       <div
         ref={eraserRingRef}
         className="pointer-events-none"

@@ -1,16 +1,7 @@
 'use client';
 
 /**
- * PageNavigator
- *
  * Floating bottom-center bar for multi-page navigation.
- *
- * Props:
- *   currentPage  - 0-indexed current page index
- *   totalPages   - total number of pages
- *   onPrevPage   - () => void
- *   onNextPage   - () => void
- *   onNewPage    - () => void
  */
 export default function PageNavigator({
   currentPage,
@@ -25,7 +16,6 @@ export default function PageNavigator({
       id="page-navigator"
       className="fixed bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-1 sm:gap-1.5 bg-white/90 backdrop-blur-sm border border-gray-200 shadow-lg rounded-xl px-1.5 sm:px-2 py-1 sm:py-1.5 z-50"
     >
-      {/* Previous page */}
       <button
         id="btn-prev-page"
         title="Previous page"
@@ -38,7 +28,6 @@ export default function PageNavigator({
         </svg>
       </button>
 
-      {/* Page indicator */}
       <span
         id="page-indicator"
         className="min-w-[3.5rem] sm:min-w-[5rem] text-center text-xs font-semibold text-gray-700 tabular-nums select-none"
@@ -46,7 +35,6 @@ export default function PageNavigator({
         Page {currentPage + 1} / {totalPages}
       </span>
 
-      {/* Next page */}
       <button
         id="btn-next-page"
         title="Next page"
@@ -59,10 +47,8 @@ export default function PageNavigator({
         </svg>
       </button>
 
-      {/* Divider */}
       <div className="w-px h-5 bg-gray-200 mx-0.5" />
 
-      {/* New page button */}
       <button
         id="btn-new-page"
         title="Add new page"
@@ -74,8 +60,7 @@ export default function PageNavigator({
         </svg>
         <span className="hidden sm:inline">New Page</span>
       </button>
-      
-      {/* Delete page button */}
+
       <button
         id="btn-delete-page"
         title="Delete current page"

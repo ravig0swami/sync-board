@@ -8,23 +8,18 @@ const cors = require("cors");
 const app = express();
 const server = http.createServer(app);
 
-// Determine if we're in production mode
 const isProduction = process.env.NODE_ENV === "production";
 
-// Resolve path to client build (Next.js output)
 const clientBuildPath = isProduction
   ? path.join(__dirname, "../client/.next")
   : path.join(__dirname, "../client");
 
-// Allow cross-origin requests from the Next.js client
 const io = new Server(server, {
   cors: {
     origin: process.env.CORS_ORIGIN || "*",
     methods: ["GET", "POST"],
   },
 });
-
-// ─── Middleware ──────────────────────────────────────────────────────────────
 
 app.use(
   cors({
@@ -35,15 +30,12 @@ app.use(
 );
 app.use(express.json());
 
-// Request logging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// ─── Serve static files in production ────────────────────────────────────────
 if (isProduction) {
-  // Serve the Next.js static output (standalone or export mode)
   const staticDir = path.join(clientBuildPath, "standalone", "client");
   if (require("fs").existsSync(staticDir)) {
     app.use(express.static(staticDir));
@@ -52,29 +44,18 @@ if (isProduction) {
     console.warn(`Static directory not found: ${staticDir}`);
   }
 
-  // Also serve the _next static chunks
   const nextStaticDir = path.join(clientBuildPath, "static");
   if (require("fs").existsSync(nextStaticDir)) {
     app.use("/_next/static", express.static(nextStaticDir));
   }
 }
 
-// In-memory store for rooms
-// rooms = { roomCode: { strokes: [], users: Set<socketId> } }
+// In-memory store: rooms = { roomCode: { pages, redoPages, totalPages, users } }
 const rooms = {};
 
-// Maps an opaque board URL token -> room code.
-// The board URL uses these tokens so the human-readable room code is never
-// exposed in the address bar. Only sockets that joined with the correct code
-// ever receive a token (returned by join-room), so the URL alone cannot grant
-// access on a fresh session.
-const boardTokens = {}; // token -> roomCode
+// Maps opaque board URL token -> room code (keeps room code out of the URL)
+const boardTokens = {};
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
-
-/**
- * Generate a random 6-character alphanumeric room code (uppercase).
- */
 function generateRoomCode() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "";
@@ -84,24 +65,15 @@ function generateRoomCode() {
   return code;
 }
 
-/**
- * Generate a long, random, opaque token that is used in the board URL.
- * This is deliberately unrelated to the room code so the code is never
- * visible in the address bar.
- */
 function generateBoardToken() {
   return crypto.randomBytes(24).toString("base64url");
 }
 
-/**
- * Clean up a room if it is empty (no connected users).
- */
 function cleanUpRoom(roomCode) {
   const room = rooms[roomCode];
   if (room && room.users.size === 0) {
     delete rooms[roomCode];
 
-    // Drop any board URL tokens that pointed to this (now deleted) room.
     for (const token of Object.keys(boardTokens)) {
       if (boardTokens[token] === roomCode) delete boardTokens[token];
     }
@@ -110,9 +82,6 @@ function cleanUpRoom(roomCode) {
   }
 }
 
-// ─── API Routes ─────────────────────────────────────────────────────────────
-
-// Health check - the primary health endpoint
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
@@ -121,12 +90,8 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// ─── SPA Fallback (only in production) ───────────────────────────────────────
-// In production, the Express server serves the Next.js build.
-// For any non-API route, serve the main HTML file so client-side routing works.
 if (isProduction) {
   app.get("*", (req, res, next) => {
-    // Skip Socket.IO and API routes
     if (req.url.startsWith("/socket.io") || req.url.startsWith("/api/")) {
       return next();
     }
@@ -140,7 +105,6 @@ if (isProduction) {
     if (require("fs").existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
-      // Try the default Next.js standalone HTML
       const fallbackPath = path.join(
         clientBuildPath,
         "standalone",
@@ -157,14 +121,11 @@ if (isProduction) {
   });
 }
 
-// ─── 404 Handler ────────────────────────────────────────────────────────────
 app.use((req, res) => {
-  // Don't handle non-HTTP paths (e.g., WebSocket upgrade)
   if (req.url.startsWith("/socket.io")) {
     return;
   }
 
-  // For API routes, return JSON
   if (req.url.startsWith("/api/")) {
     return res.status(404).json({
       error: "NOT_FOUND",
@@ -172,7 +133,6 @@ app.use((req, res) => {
     });
   }
 
-  // For everything else in production, return a simple HTML page
   if (isProduction) {
     res.status(404).send(`
       <!DOCTYPE html>
@@ -192,7 +152,6 @@ app.use((req, res) => {
   }
 });
 
-// ─── Error Handling Middleware ──────────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error(`[ERROR] ${err.message || err}`);
   console.error(err.stack);
@@ -202,28 +161,21 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ─── Socket.IO Events ──────────────────────────────────────────────────────
-
 io.on("connection", (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
-  // Track which room this socket is currently in
   let currentRoom = null;
 
-  // ── create-room ──────────────────────────────────────────────────────────
-  // Client asks server to create a new room.
-  // Server generates a unique code, stores it, and returns it to the client.
   socket.on("create-room", (callback) => {
     let code;
 
-    // Keep generating until we get a unique code
     do {
       code = generateRoomCode();
     } while (rooms[code]);
 
     rooms[code] = {
-      pages: { 0: [] }, // mapping of pageIndex to array of strokes
-      redoPages: {},    // per-page stack of undone strokes (for redo)
+      pages: { 0: [] },
+      redoPages: {},
       totalPages: 1,
       users: new Set(),
     };
@@ -232,9 +184,6 @@ io.on("connection", (socket) => {
     callback({ success: true, roomCode: code });
   });
 
-  // ── join-room ─────────────────────────────────────────────────────────────
-  // Client joins an existing room using its code.
-  // On success, the server sends back the current canvas state (all prior strokes).
   socket.on("join-room", ({ roomCode }, callback) => {
     const room = rooms[roomCode];
 
@@ -245,7 +194,6 @@ io.on("connection", (socket) => {
       });
     }
 
-    // Leave any previous room cleanly
     if (currentRoom && currentRoom !== roomCode) {
       socket.leave(currentRoom);
       rooms[currentRoom]?.users.delete(socket.id);
@@ -261,17 +209,11 @@ io.on("connection", (socket) => {
       `Socket ${socket.id} joined room ${roomCode} (${userCount} users)`,
     );
 
-    // Notify others in the room about the new user count
     socket.to(roomCode).emit("user-count", userCount);
 
-    // Issue a fresh opaque board token for this join. This token is what
-    // goes into the board URL — never the human-readable room code — so the
-    // code is never exposed in the address bar. The token only becomes
-    // useful to the client that stored it in its session during the join.
     const token = generateBoardToken();
     boardTokens[token] = roomCode;
 
-    // Send the new user the full canvas history for page 0
     callback({
       success: true,
       roomCode,
@@ -282,8 +224,6 @@ io.on("connection", (socket) => {
     });
   });
 
-  // ── get-all-pages ─────────────────────────────────────────────────────────
-  // Client asks for the strokes of every page (used for PDF export/download).
   socket.on("get-all-pages", ({ roomCode }, callback) => {
     const room = rooms[roomCode];
     if (!room) {
@@ -298,8 +238,6 @@ io.on("connection", (socket) => {
     callback?.({ success: true, pages, totalPages: room.totalPages });
   });
 
-  // ── change-page ───────────────────────────────────────────────────────────
-  // Client switches to a different page. Server sends back strokes for that page.
   socket.on("change-page", ({ roomCode, pageIndex }, callback) => {
     const room = rooms[roomCode];
     if (!room) {
@@ -321,14 +259,13 @@ io.on("connection", (socket) => {
     });
   });
 
-  // ── delete-page ───────────────────────────────────────────────────────────
   socket.on("delete-page", ({ roomCode, pageIndex }, callback) => {
     const room = rooms[roomCode];
     if (!room) {
       if (callback) callback({ success: false, error: "Room not found." });
       return;
     }
-    
+
     if (pageIndex === 0) {
       if (callback) callback({ success: false, error: "Cannot delete the first page." });
       return;
@@ -346,7 +283,7 @@ io.on("connection", (socket) => {
     // Delete the last page
     delete room.pages[room.totalPages - 1];
     delete room.redoPages[room.totalPages - 1];
-    
+
     room.totalPages = Math.max(1, room.totalPages - 1);
 
     // Notify everyone
@@ -354,8 +291,6 @@ io.on("connection", (socket) => {
     if (callback) callback({ success: true });
   });
 
-  // ── leave-room ────────────────────────────────────────────────────────────
-  // Client explicitly leaves the room (e.g., navigating back to home).
   socket.on("leave-room", ({ roomCode }) => {
     const room = rooms[roomCode];
     if (room) {
@@ -369,8 +304,6 @@ io.on("connection", (socket) => {
     currentRoom = null;
   });
 
-  // ── drawing ───────────────────────────────────────────────────────────────
-  // Client sends a drawing stroke segment for a specific page.
   socket.on("drawing", ({ roomCode, pageIndex, stroke }) => {
     const room = rooms[roomCode];
     if (!room) return;
@@ -394,8 +327,6 @@ io.on("connection", (socket) => {
     socket.to(roomCode).emit("drawing", { pageIndex, stroke });
   });
 
-  // ── clear-board ───────────────────────────────────────────────────────────
-  // Client requests the board to be cleared for a specific page.
   socket.on("clear-board", ({ roomCode, pageIndex }) => {
     const room = rooms[roomCode];
     if (!room) return;
@@ -412,8 +343,6 @@ io.on("connection", (socket) => {
     console.log(`Board cleared in room ${roomCode}, page ${pageIndex}`);
   });
 
-  // ── undo ──────────────────────────────────────────────────────────────
-  // Remove the last stroke from a page and tell everyone to redraw.
   socket.on("undo", ({ roomCode, pageIndex }, callback) => {
     const room = rooms[roomCode];
     if (!room) return callback?.({ success: false, error: "Room not found." });
@@ -429,8 +358,6 @@ io.on("connection", (socket) => {
     callback?.({ success: true, strokes });
   });
 
-  // ── redo ──────────────────────────────────────────────────────────────
-  // Restore the most recently undone stroke and tell everyone to redraw.
   socket.on("redo", ({ roomCode, pageIndex }, callback) => {
     const room = rooms[roomCode];
     if (!room) return callback?.({ success: false, error: "Room not found." });
@@ -448,8 +375,6 @@ io.on("connection", (socket) => {
     callback?.({ success: true, strokes });
   });
 
-  // ── disconnect ────────────────────────────────────────────────────────────
-  // Fired automatically when a socket loses connection (tab closed, etc.).
   socket.on("disconnect", () => {
     console.log(`Socket disconnected: ${socket.id}`);
     if (currentRoom && rooms[currentRoom]) {
@@ -460,8 +385,6 @@ io.on("connection", (socket) => {
     }
   });
 });
-
-// ─── Start Server ──────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {

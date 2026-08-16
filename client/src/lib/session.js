@@ -1,12 +1,12 @@
 /**
  * Session management for room access control.
  *
- * Stores a map of board-URL token -> room code for the rooms the user has
- * *explicitly* joined through the landing page (i.e. they knew the code and
- * submitted it). The board URL only ever contains an opaque token, never the
- * human-readable room code. This pairing acts as an access gate: directly
- * navigating to /board/[token] will NOT grant access because sessionStorage is
- * per-tab and is only populated by the landing-page "join with room code" flow.
+ * Stores a map of board-URL token -> room code for rooms the user has
+ * *explicitly* joined through the landing page. The board URL only ever
+ * contains an opaque token, never the human-readable room code. This pairing
+ * acts as an access gate: directly navigating to /board/[token] will NOT
+ * grant access because sessionStorage is per-tab and is only populated by
+ * the landing-page "join with room code" flow.
  *
  * We use sessionStorage (not localStorage) so that:
  *  - Same-tab refreshes & SPA navigations: access persists ✓

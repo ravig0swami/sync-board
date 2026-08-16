@@ -14,14 +14,6 @@ import { exportPagesToPdf } from "@/lib/exportPdf";
  * /board/[token] — the main collaborative whiteboard page.
  * The URL carries an opaque token (never the human-readable room code), so
  * only people who joined with the room code can access the board.
- *
- * Responsibilities:
- *  1. Verify the room is valid (redirect home if not).
- *  2. Replay historic strokes for late joiners.
- *  3. Forward local drawing strokes to the server via socket.
- *  4. Receive remote strokes and render them on canvas.
- *  5. Handle clear-board events from any user in the room.
- *  6. Clean up the socket listeners on unmount.
  */
 export default function BoardPage() {
   const router = useRouter();
@@ -31,18 +23,12 @@ export default function BoardPage() {
   // the user explicitly joined with the room code on the home page.
   const token = params?.token;
 
-  // ── Room code (hydrated after mount) ──────────────────────────────────────
-  // The room code lives in sessionStorage, which is browser-only. Reading it
-  // during render would make the server HTML (no sessionStorage → empty) differ
-  // from the client's first render (actual code), causing a hydration mismatch.
-  // So we start with `null`, read the code in an effect after mount, and let
-  // both server + first client render agree on the initial (empty) value.
+  // Room code is hydrated after mount to avoid hydration mismatch
   const [roomCode, setRoomCode] = useState(null);
   useEffect(() => {
     if (token) setRoomCode(getRoomCodeForToken(token));
   }, [token]);
 
-  // ── Drawing state ──────────────────────────────────────────────────────
   const [tool, setTool] = useState("pencil");
   const [color, setColor] = useState("#1a1a2e");
   const [brushSize, setBrushSize] = useState(2);
@@ -60,21 +46,13 @@ export default function BoardPage() {
     currentPageRef.current = currentPage;
   }, [currentPage]);
 
-  // Ref to the canvas imperative API
   const canvasRef = useRef(null);
 
-  // ── Socket setup ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!token) return;
 
     // Access gate: only allow entry if the user came through the proper
-    // create/join flow on the home page (sessionStorage-based). The URL only
-    // contains an opaque token, and a token -> room code pairing only exists
-    // when the user explicitly joined with the room code. This blocks anyone
-    // who just opens the shared board URL directly (new tab, incognito window,
-    // another browser, etc.) without knowing the flow.
-    // `roomCode` starts as `null` and is hydrated right after mount — wait for
-    // it before deciding whether the user is allowed in (avoids a false gate).
+    // create/join flow on the home page (sessionStorage-based).
     if (roomCode === null) return;
     if (!roomCode) {
       setError(
@@ -87,21 +65,17 @@ export default function BoardPage() {
     let joinTimeout = null;
     let mounted = true;
 
-    // Connect if needed (may already be connected from the landing page)
     if (!socket.connected) {
       socket.connect();
 
-      // If we load directly via URL (not from home page), we need to join the room ourselves
       socket.once("connect", () => {
         if (mounted) joinRoom(socket);
       });
     } else {
-      // Already connected — check if we need to re-join (e.g., direct URL load)
       joinRoom(socket);
     }
 
     function joinRoom(s) {
-      // Set a timeout for the join request
       joinTimeout = setTimeout(() => {
         if (mounted) {
           setError(
@@ -130,7 +104,6 @@ export default function BoardPage() {
 
         // Replay any existing strokes so late joiners see what was drawn
         if (res.strokes?.length) {
-          // Small delay to ensure the canvas has fully rendered
           setTimeout(() => {
             if (mounted) {
               canvasRef.current?.replayStrokes(res.strokes);
@@ -140,24 +113,18 @@ export default function BoardPage() {
       });
     }
 
-    // ── Incoming events ──────────────────────────────────────────────────
-
-    // Another user drew something — render it on our canvas
     const onDrawing = ({ pageIndex, stroke }) => {
-      // Only draw if the stroke belongs to the page we're currently viewing
       if (pageIndex === currentPageRef.current) {
         canvasRef.current?.drawStroke(stroke);
       }
     };
 
-    // Someone cleared the board — clear ours too
     const onClearBoard = ({ pageIndex }) => {
       if (pageIndex === currentPageRef.current) {
         canvasRef.current?.clearCanvas();
       }
     };
 
-    // Someone undid/redid on this page — redraw the full page
     const onStrokesChanged = ({ pageIndex, strokes }) => {
       if (pageIndex === currentPageRef.current) {
         canvasRef.current?.clearCanvas();
@@ -167,27 +134,20 @@ export default function BoardPage() {
       }
     };
 
-    // User joined or left — update the count
     const onUserCount = (count) => {
       setUserCount(count);
     };
-    
-    // Page count increased
+
     const onPageUpdate = (newTotal) => {
       setTotalPages(newTotal);
     };
 
-    // A page was deleted
     const onPageDeleted = ({ deletedIndex, totalPages }) => {
-      console.log("Received page-deleted event:", { deletedIndex, totalPages });
       setTotalPages(totalPages);
-      // If we were on the deleted page or a page after it, shift down
       if (currentPageRef.current >= deletedIndex) {
         const newPage = Math.max(0, currentPageRef.current - 1);
-        console.log("Shifting to new page after deletion:", newPage);
         setCurrentPage(newPage);
-        
-        // Request the new page's strokes
+
         socket.emit("change-page", { roomCode, pageIndex: newPage }, (res) => {
           if (res.success) {
             canvasRef.current?.clearCanvas();
@@ -199,7 +159,6 @@ export default function BoardPage() {
       }
     };
 
-    // Handle unexpected disconnection
     const onDisconnect = () => {
       if (mounted) setConnected(false);
     };
@@ -207,11 +166,9 @@ export default function BoardPage() {
     const onReconnect = () => {
       if (!mounted) return;
       setConnected(true);
-      // Re-join the room on reconnect
       joinRoom(socket);
     };
 
-    // Handle connection errors
     const onConnectError = (error) => {
       if (mounted) {
         setConnected(false);
@@ -231,7 +188,6 @@ export default function BoardPage() {
     socket.on("connect", onReconnect);
     socket.on("connect_error", onConnectError);
 
-    // ── Cleanup on unmount ───────────────────────────────────────────────
     return () => {
       mounted = false;
       clearTimeout(joinTimeout);
@@ -246,17 +202,10 @@ export default function BoardPage() {
       socket.off("connect", onReconnect);
       socket.off("connect_error", onConnectError);
 
-      // Tell the server we're leaving
       socket.emit("leave-room", { roomCode });
     };
   }, [roomCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Handlers ────────────────────────────────────────────────────────────
-
-  /**
-   * Called by the canvas when the user finishes a stroke.
-   * We emit the stroke to the server which forwards it to other users.
-   */
   const handleDrawEnd = useCallback(
     (stroke) => {
       const socket = getSocket();
@@ -265,9 +214,6 @@ export default function BoardPage() {
     [roomCode, currentPage],
   );
 
-  /**
-   * Clear the board for everyone in the room.
-   */
   const handleClearBoard = useCallback(() => {
     const socket = getSocket();
     socket.emit("clear-board", { roomCode, pageIndex: currentPage });
@@ -275,27 +221,16 @@ export default function BoardPage() {
     // so we don't clear locally here — the socket event handler will do it.
   }, [roomCode, currentPage]);
 
-  /**
-   * Undo the last stroke on the current page (synced via the server).
-   */
   const handleUndo = useCallback(() => {
     const socket = getSocket();
     socket.emit("undo", { roomCode, pageIndex: currentPage });
   }, [roomCode, currentPage]);
 
-  /**
-   * Redo the most recently undone stroke on the current page (synced).
-   */
   const handleRedo = useCallback(() => {
     const socket = getSocket();
     socket.emit("redo", { roomCode, pageIndex: currentPage });
   }, [roomCode, currentPage]);
 
-  /**
-   * Download every page of the board as a landscape PDF.
-   * Fetches the strokes for all pages from the server, then renders them into
-   * a landscape A4 PDF and triggers a download.
-   */
   const [downloading, setDownloading] = useState(false);
   const handleDownloadPdf = useCallback(() => {
     if (downloading) return;
@@ -311,10 +246,6 @@ export default function BoardPage() {
     });
   }, [roomCode, downloading]);
 
-  /**
-   * Switch drawing tool, also setting the matching default brush size:
-   * pencil = 2px, eraser = 30px.
-   */
   const handleToolChange = useCallback((newTool) => {
     setTool(newTool);
     setBrushSize(newTool === "eraser" ? 30 : 2);
@@ -327,14 +258,12 @@ export default function BoardPage() {
     router.push("/");
   };
 
-  // ── Pagination Handlers ──────────────────────────────────────────────────
-
   const changePage = (newPageIndex) => {
     if (newPageIndex < 0) return;
-    
+
     setCurrentPage(newPageIndex);
     canvasRef.current?.clearCanvas();
-    
+
     const socket = getSocket();
     socket.emit("change-page", { roomCode, pageIndex: newPageIndex }, (res) => {
       if (res.success) {
@@ -351,13 +280,10 @@ export default function BoardPage() {
   const handleNewPage = () => changePage(totalPages);
 
   const handleDeletePage = () => {
-    console.log("Delete page clicked, currentPage:", currentPage);
     if (currentPage === 0) return;
-    
+
     const socket = getSocket();
-    console.log("Emitting delete-page to server for room:", roomCode, "pageIndex:", currentPage);
     socket.emit("delete-page", { roomCode, pageIndex: currentPage }, (res) => {
-      console.log("Received delete-page response from server:", res);
       if (res.success) {
         // The page-deleted event handles the state update and fetch
       } else if (res.error) {
@@ -366,7 +292,6 @@ export default function BoardPage() {
     });
   };
 
-  // ── Error state ─────────────────────────────────────────────────────────
   if (error) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
@@ -402,10 +327,8 @@ export default function BoardPage() {
     );
   }
 
-  // ── Main board UI ────────────────────────────────────────────────────────
   return (
     <main className="flex flex-col h-dvh overflow-hidden bg-white">
-      {/* Connection status banner */}
       {!connected && !error && (
         <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-xs text-yellow-700 flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
@@ -413,7 +336,6 @@ export default function BoardPage() {
         </div>
       )}
 
-      {/* Toolbar */}
       <Toolbar
         tool={tool}
         color={color}
@@ -431,7 +353,6 @@ export default function BoardPage() {
         onLeaveRoom={handleLeave}
       />
 
-      {/* Canvas fills remaining height */}
       <WhiteboardCanvas
         ref={canvasRef}
         tool={tool}
@@ -453,7 +374,6 @@ export default function BoardPage() {
         onDeletePage={handleDeletePage}
       />
 
-      {/* Leave room button — fixed bottom-right */}
       <button
         id="btn-leave-room"
         onClick={handleLeave}
